@@ -1,8 +1,10 @@
 "use client";
-import { useEffect, useState, Suspense } from "react";
+import { createContext, useContext, useEffect, useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
+
+export const ShopContext = createContext<{ companyName: string; shop: string }>({ companyName: "", shop: "" });
 
 function buildClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -263,6 +265,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const shopQuery = shop ? `?shop=${shop}${host ? `&host=${host}` : ""}` : "";
 
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [companyName, setCompanyName] = useState("");
 
   useEffect(() => {
     if (!shop) return;
@@ -280,14 +283,25 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     return () => clearInterval(t);
   }, [shop]);
 
+  useEffect(() => {
+    if (!shop) return;
+    fetch(`/api/settings?shop=${shop}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.company_name) setCompanyName(d.company_name); })
+      .catch(() => {});
+  }, [shop]);
+
+  const displayName = companyName || "FixIt Pro";
+
   return (
+    <ShopContext.Provider value={{ companyName: displayName, shop }}>
     <div className="dashWrap">
       <style>{dashStyles}</style>
       <aside className="sidebar">
         <div className="sidebarBrand">
-          <img src="/favicon.ico" alt="GSM Team" className="sidebarLogoImg" />
+          <img src="/favicon.ico" alt={displayName} className="sidebarLogoImg" />
           <div>
-            <div className="sidebarTitle">GSM Team</div>
+            <div className="sidebarTitle">{displayName}</div>
             <div className="sidebarSub">Admin</div>
           </div>
         </div>
@@ -339,6 +353,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
         })}
       </nav>
     </div>
+    </ShopContext.Provider>
   );
 }
 

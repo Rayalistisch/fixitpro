@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import DashboardShell from "./components/DashboardShell";
+import { useContext, useEffect, useMemo, useState } from "react";
+import DashboardShell, { ShopContext } from "./components/DashboardShell";
 
 type Row = any;
 
@@ -92,6 +92,7 @@ function getInitials(name: string) {
 }
 
 export default function AdminPage() {
+  const { companyName } = useContext(ShopContext);
   const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState<"pending" | "awaiting_approval" | "approved" | "rejected" | "all">("pending");
   const [status, setStatus] = useState("Laden…");
@@ -363,7 +364,7 @@ export default function AdminPage() {
           <div className="mhLogo" aria-hidden="true">
             <img src="/favicon.ico" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }} />
           </div>
-          <span className="mhTitle">GSM Team</span>
+          <span className="mhTitle">{companyName || "FixIt Pro"}</span>
         </div>
         <div className="mhRight">
           <span className="mhStatus">
