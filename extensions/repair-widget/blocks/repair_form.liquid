@@ -1,0 +1,38 @@
+{{ 'repair-widget.css' | asset_url | stylesheet_tag }}
+
+<div
+  id="repair-widget-root"
+  data-proxy-base="/apps/reparatie"
+  style="max-width:{{ section.settings.max_width }}px;margin:0 auto"
+></div>
+
+{{ 'repair-widget.js' | asset_url | script_tag }}
+
+{% schema %}
+{
+  "name": "Reparatie Widget",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Titel",
+      "default": "Reparatie aanvragen"
+    },
+    {
+      "type": "range",
+      "id": "max_width",
+      "label": "Maximale breedte (px)",
+      "min": 400,
+      "max": 1200,
+      "step": 20,
+      "default": 720
+    }
+  ],
+  "presets": [
+    {
+      "name": "Reparatie Widget"
+    }
+  ]
+}
+{% endschema %}

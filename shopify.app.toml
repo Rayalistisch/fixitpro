@@ -1,0 +1,32 @@
+name = "FixIt Pro"
+client_id = "df3b7617ac4413e0ac8b382f54e48e0c"
+application_url = "https://fixitpro-one.vercel.app"
+embedded = true
+
+[access_scopes]
+scopes = "read_themes,write_themes"
+
+[auth]
+redirect_urls = [
+  "https://fixitpro-one.vercel.app/api/auth/callback"
+]
+
+[app_proxy]
+url = "https://fixitpro-one.vercel.app/api/proxy"
+subpath = "reparatie"
+prefix = "apps"
+
+[webhooks]
+api_version = "2025-01"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "/api/webhooks/app-uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = ["shop/redact", "customers/redact", "customers/data_request"]
+  uri = "/api/webhooks/gdpr"
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "gsm-team-dev.myshopify.com"
