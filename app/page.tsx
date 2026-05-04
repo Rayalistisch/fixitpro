@@ -1,6 +1,7 @@
 "use client";
 
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardShell, { ShopContext } from "./components/DashboardShell";
 
 type Row = any;
@@ -91,9 +92,11 @@ function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase() || "?";
 }
 
-export default function AdminPage() {
-  const { companyName, shop } = useContext(ShopContext);
+function AdminPageInner() {
+  const searchParams = useSearchParams();
+  const shop = searchParams.get("shop") ?? "";
   const shopQ = shop ? `&shop=${encodeURIComponent(shop)}` : "";
+  const { companyName } = useContext(ShopContext);
   const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState<"pending" | "awaiting_approval" | "approved" | "rejected" | "all">("pending");
   const [status, setStatus] = useState("Laden…");
@@ -714,6 +717,14 @@ export default function AdminPage() {
       </main>
 
     </DashboardShell>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminPageInner />
+    </Suspense>
   );
 }
 
