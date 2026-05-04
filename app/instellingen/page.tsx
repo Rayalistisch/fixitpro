@@ -35,18 +35,6 @@ function Step({ n, title, done }: { n: number; title: React.ReactNode; done?: bo
   );
 }
 
-function Code({ children }: { children: string }) {
-  return (
-    <code style={{
-      display: "block", background: "#f1f5f9", borderRadius: 10,
-      padding: "12px 16px", fontSize: 13, fontFamily: "monospace",
-      color: "#0f172a", whiteSpace: "pre-wrap", wordBreak: "break-all",
-      border: "1px solid #e2e8f0", marginTop: 8, marginBottom: 16,
-    }}>
-      {children}
-    </code>
-  );
-}
 
 function InstellingenContent() {
   const searchParams = useSearchParams();
@@ -115,8 +103,6 @@ function InstellingenContent() {
       </div>
     );
   }
-
-  const proxyBase = "https://fixitpro-one.vercel.app/api/proxy";
 
   return (
     <DashboardShell>
@@ -210,101 +196,37 @@ function InstellingenContent() {
         {/* ── TAB: Installatie widget ── */}
         {tab === "installatie" && (
           <div>
-            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 16, padding: 20, marginBottom: 24 }}>
-              <p style={{ fontWeight: 700, color: "#1d4ed8", marginBottom: 4 }}>De reparatie-widget is een Shopify Theme App Extension.</p>
-              <p style={{ color: "#1e40af", fontSize: 14 }}>
-                Volg de stappen hieronder om de widget op je webshop te plaatsen.
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 16, padding: 20, marginBottom: 28 }}>
+              <p style={{ fontWeight: 700, color: "#15803d", marginBottom: 4 }}>De widget staat al klaar — je hoeft niets te installeren.</p>
+              <p style={{ color: "#166534", fontSize: 14 }}>
+                De app is door de developer geconfigureerd. Jij voegt de widget alleen toe aan je thema.
               </p>
             </div>
 
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 24 }}>Stap 1 — App Proxy instellen</h2>
-              <p style={{ fontSize: 14, color: "#374151", marginBottom: 16 }}>
-                Ga naar <strong>Shopify Partners Dashboard → FixIt Pro → Configuratie → App proxy</strong> en vul in:
-              </p>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                <tbody>
-                  {[
-                    ["Prefix", "apps"],
-                    ["Subpath", "reparatie"],
-                    ["Proxy URL", proxyBase],
-                  ].map(([k, v]) => (
-                    <tr key={k} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "10px 0", fontWeight: 700, color: "#374151", width: 120 }}>{k}</td>
-                      <td style={{ padding: "10px 0", fontFamily: "monospace", color: "#0c86ad" }}>{v}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 24 }}>Stap 2 — Widget toevoegen aan je thema</h2>
-              <Step n={1} title={<>Ga in je Shopify dashboard naar <strong>Online Store → Themes → Customize</strong></>} />
-              <Step n={2} title={<>Klik op <strong>Add section</strong> (of voeg een blok toe aan een bestaande sectie)</>} />
-              <Step n={3} title={<>Zoek naar <strong>&quot;Reparatie Widget&quot;</strong> en voeg hem toe</>} />
-              <Step n={4} title={<>Sla op en publiceer je thema</>} />
-              <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "12px 16px", fontSize: 14, color: "#166534" }}>
-                De widget laadt automatisch jouw catalogus via de App Proxy — er zijn geen API-sleutels nodig in het thema.
-              </div>
-            </div>
-
-            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 16 }}>Stap 3 — Catalogus importeren</h2>
-              <p style={{ fontSize: 14, color: "#374151", marginBottom: 12 }}>
-                Heb je een bestaande prijscatalogus als SQL-bestand? Importeer die met dit script:
-              </p>
-              <Code>{`node scripts/import-catalog.mjs ${shop || "jouw-shop.myshopify.com"}`}</Code>
-              <p style={{ fontSize: 13, color: "#6b7280" }}>
-                Of voeg handmatig artikelen toe via de <strong>Catalogus</strong> pagina in dit admin.
-              </p>
-            </div>
-
-            <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, marginBottom: 20 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 16 }}>Proxy endpoints</h2>
-              <p style={{ fontSize: 14, color: "#374151", marginBottom: 12 }}>
-                De widget communiceert via deze publieke endpoints (geen auth vereist vanuit de storefront):
-              </p>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #f1f5f9" }}>
-                    <th style={{ textAlign: "left", padding: "8px 0", color: "#6b7280", fontWeight: 700 }}>Endpoint</th>
-                    <th style={{ textAlign: "left", padding: "8px 0", color: "#6b7280", fontWeight: 700 }}>Functie</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ["/apps/reparatie/catalog?brands=1", "Alle merken"],
-                    ["/apps/reparatie/catalog?models=1&brand=Apple", "Modellen per merk"],
-                    ["/apps/reparatie/catalog?rpc=get_colors&...", "Kleuren per model"],
-                    ["/apps/reparatie/catalog?rpc=get_repair_types&...", "Reparatietypes"],
-                    ["/apps/reparatie/catalog?rpc=get_qualities_prices&...", "Kwaliteit + prijs"],
-                    ["/apps/reparatie/create-request (POST)", "Aanvraag indienen"],
-                  ].map(([ep, fn]) => (
-                    <tr key={ep} style={{ borderBottom: "1px solid #f8fafc" }}>
-                      <td style={{ padding: "8px 0", fontFamily: "monospace", fontSize: 12, color: "#0c86ad" }}>{ep}</td>
-                      <td style={{ padding: "8px 0", color: "#374151" }}>{fn}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 24 }}>Widget toevoegen aan je webshop</h2>
+              <Step n={1} title={<>Ga in je Shopify dashboard naar <strong>Online winkel → Thema&apos;s → Aanpassen</strong></>} />
+              <Step n={2} title={<>Navigeer naar de pagina waar je de widget wilt plaatsen (bijv. een losse pagina &quot;Reparatie&quot;)</>} />
+              <Step n={3} title={<>Klik op <strong>Sectie toevoegen</strong> en zoek naar <strong>&quot;Reparatie Widget&quot;</strong></>} />
+              <Step n={4} title={<>Sla op — de widget laadt automatisch jouw prijscatalogus</>} />
             </div>
 
             <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 16 }}>GDPR webhooks (verplicht voor App Store)</h2>
-              <p style={{ fontSize: 14, color: "#374151", marginBottom: 12 }}>
-                Ga in het Partners Dashboard naar <strong>FixIt Pro → Configuratie → Privacy compliance</strong> en stel in:
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#111827", marginBottom: 12 }}>Prijscatalogus beheren</h2>
+              <p style={{ fontSize: 14, color: "#374151", marginBottom: 16 }}>
+                De widget toont alleen merken en modellen die in jouw catalogus staan.
+                Voeg apparaten en reparatietypes toe via de <strong>Catalogus</strong> pagina in dit admin.
               </p>
-              {[
-                ["Customer data request URL", `https://fixitpro-one.vercel.app/api/webhooks/gdpr`],
-                ["Customer redact URL", `https://fixitpro-one.vercel.app/api/webhooks/gdpr`],
-                ["Shop redact URL", `https://fixitpro-one.vercel.app/api/webhooks/gdpr`],
-              ].map(([label, url]) => (
-                <div key={label} style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#374151", marginBottom: 4 }}>{label}</div>
-                  <code style={{ fontSize: 12, color: "#0c86ad", fontFamily: "monospace" }}>{url}</code>
-                </div>
-              ))}
+              <a
+                href={`/catalogus${shop ? `?shop=${shop}` : ""}`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  background: "#0c86ad", color: "#fff", textDecoration: "none",
+                  borderRadius: 999, padding: "10px 22px", fontWeight: 700, fontSize: 14,
+                }}
+              >
+                Naar catalogus →
+              </a>
             </div>
           </div>
         )}
