@@ -33,11 +33,12 @@ export async function POST(req: Request) {
       "company_name", "company_tagline", "address_line1", "address_line2",
       "phone", "email", "website", "kvk", "btw", "iban", "bic",
       "logo_url", "notify_email",
+      "mail_mode", "smtp_email", "smtp_password", "smtp_host", "smtp_port", "smtp_secure",
     ];
 
     const patch: ShopSettings = {};
     for (const key of ALLOWED) {
-      if (key in body) patch[key] = body[key] as string;
+      if (key in body) (patch as any)[key] = body[key];
     }
 
     const sb = getSupabase();

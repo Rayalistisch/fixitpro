@@ -24,6 +24,13 @@ export type ShopSettings = {
   bic?: string;
   logo_url?: string;
   notify_email?: string;
+  // Mail provider
+  mail_mode?: "mailgun" | "smtp";
+  smtp_email?: string;
+  smtp_password?: string;
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_secure?: boolean;
 };
 
 export type Shop = {
