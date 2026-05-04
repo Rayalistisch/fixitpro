@@ -38,6 +38,12 @@ export async function GET(req: Request) {
 
   try {
     // Wissel code voor access token
+    console.log("TOKEN EXCHANGE DEBUG:", {
+      shop,
+      api_key_prefix: (process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "").slice(0, 6),
+      secret_prefix: (process.env.SHOPIFY_API_SECRET ?? "").slice(0, 6),
+      code_prefix: code.slice(0, 6),
+    });
     const { access_token, scope } = await exchangeCodeForToken(shop, code);
 
     // Sla shop op in DB
