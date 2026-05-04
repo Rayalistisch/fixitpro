@@ -15,8 +15,23 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    const shop = searchParams.get("shop") ?? "";
+    const countOnly = searchParams.get("count") === "1";
 
     const sb = getAdmin();
+
+    // Badge count voor DashboardShell
+    if (countOnly) {
+      let q = sb
+        .from("repair_requests")
+        .select("id", { count: "exact", head: true });
+      if (shop) q = q.eq("shop_domain", shop);
+      if (status && status !== "all") q = q.eq("status", status);
+      const { count, error } = await q;
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ count: count ?? 0 });
+    }
+
     let q = sb
       .from("repair_requests")
       .select(
@@ -24,6 +39,7 @@ export async function GET(req: Request) {
       )
       .order("created_at", { ascending: false });
 
+    if (shop) q = q.eq("shop_domain", shop);
     if (status && status !== "all") q = q.eq("status", status);
 
     const { data, error } = await q;

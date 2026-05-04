@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
@@ -255,26 +255,30 @@ const dashStyles = `
 }
 `;
 
-export default function DashboardShell({ children }: { children: React.ReactNode }) {
+function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const shop = searchParams.get("shop") ?? "";
+  const host = searchParams.get("host") ?? "";
+  const shopQuery = shop ? `?shop=${shop}${host ? `&host=${host}` : ""}` : "";
+
   const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   useEffect(() => {
-    const client = buildClient();
-    if (!client) return;
-
+    if (!shop) return;
     async function fetchCount() {
-      const { count } = await client!
-        .from("repair_requests")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending");
-      setPendingCount(count ?? 0);
+      try {
+        const res = await fetch(`/api/requests?count=1&status=pending&shop=${shop}`);
+        if (res.ok) {
+          const data = await res.json();
+          setPendingCount(data.count ?? 0);
+        }
+      } catch { /* stil falen is ok */ }
     }
-
     fetchCount();
     const t = setInterval(fetchCount, 30000);
     return () => clearInterval(t);
-  }, []);
+  }, [shop]);
 
   return (
     <div className="dashWrap">
@@ -296,7 +300,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             return (
               <Link
                 key={href}
-                href={href}
+                href={`${href}${shopQuery}`}
                 className={`sidebarItem${active ? " sidebarItemActive" : ""}`}
               >
                 {icon}
@@ -322,7 +326,7 @@ export default function DashboardShell({ children }: { children: React.ReactNode
           return (
             <Link
               key={href}
-              href={href}
+              href={`${href}${shopQuery}`}
               className={`bottomNavItem${active ? " bottomNavItemActive" : ""}`}
             >
               {showBadge && (
@@ -335,5 +339,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
         })}
       </nav>
     </div>
+  );
+}
+
+export default function DashboardShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div style={{ display: "flex", minHeight: "100vh" }}>{children}</div>}>
+      <DashboardShellInner>{children}</DashboardShellInner>
+    </Suspense>
   );
 }
