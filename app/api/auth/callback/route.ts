@@ -4,6 +4,7 @@ import {
   verifyOAuthHmac,
   exchangeCodeForToken,
   upsertShop,
+  getShopFromDomain,
   sanitizeShopDomain,
 } from "@/app/lib/shopify";
 
@@ -44,12 +45,17 @@ export async function GET(req: Request) {
   // Wissel code voor access token
   const { access_token, scope } = await exchangeCodeForToken(shop, code);
 
-  // Sla shop op in DB
+  // Sla shop op in DB — upsertShop returnt de bestaande row als die al bestaat
+  const existingShop = await getShopFromDomain(shop);
   await upsertShop(shop, access_token, scope);
 
-  // Wis state cookie
+  // Nieuwe shop (geen settings) → onboarding, bestaande shop → dashboard
+  const isNew = !existingShop || !existingShop.settings_json?.company_name;
+  const destination = isNew ? "onboarding" : "";
+  const host = params.get("host") ?? "";
+
   const response = NextResponse.redirect(
-    `${process.env.APP_URL}/?shop=${shop}&host=${params.get("host") ?? ""}`
+    `${process.env.APP_URL}/${destination}?shop=${shop}&host=${host}`
   );
   response.cookies.set("shopify_oauth_state", "", { maxAge: 0, path: "/" });
 

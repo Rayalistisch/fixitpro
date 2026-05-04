@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   "/api/proxy",
   "/api/webhooks",
   "/offer-confirm",
+  "/onboarding",
   "/login",
 ];
 

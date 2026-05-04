@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DashboardShell from "@/app/components/DashboardShell";
 
@@ -19,7 +19,7 @@ type Settings = {
   notify_email?: string;
 };
 
-export default function InstellingenPage() {
+function InstellingenContent() {
   const searchParams = useSearchParams();
   const shop = searchParams.get("shop") ?? "";
 
@@ -157,5 +157,13 @@ export default function InstellingenPage() {
         )}
       </div>
     </DashboardShell>
+  );
+}
+
+export default function InstellingenPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 32, color: "#64748b" }}>Laden…</div>}>
+      <InstellingenContent />
+    </Suspense>
   );
 }
