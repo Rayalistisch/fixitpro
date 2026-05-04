@@ -369,7 +369,7 @@ function AdminPageInner() {
           <div className="mhLogo" aria-hidden="true">
             <img src="/favicon.ico" alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "8px" }} />
           </div>
-          <span className="mhTitle">{companyName || "FixIt Pro"}</span>
+          <span className="mhTitle">{companyName || "Fixora Pro"}</span>
         </div>
         <div className="mhRight">
           <span className="mhStatus">

@@ -291,7 +291,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, [shop]);
 
-  const displayName = companyName || "FixIt Pro";
+  const displayName = companyName || "Fixora Pro";
 
   return (
     <ShopContext.Provider value={{ companyName: displayName, shop }}>
@@ -299,7 +299,6 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <style>{dashStyles}</style>
       <aside className="sidebar">
         <div className="sidebarBrand">
-          <img src="/favicon.ico" alt={displayName} className="sidebarLogoImg" />
           <div>
             <div className="sidebarTitle">{displayName}</div>
             <div className="sidebarSub">Admin</div>

@@ -91,7 +91,7 @@ function OnboardingContent() {
             margin: "0 auto 16px", fontSize: 26,
           }}>🔧</div>
           <h1 style={{ fontSize: 26, fontWeight: 900, color: "#0f172a", margin: "0 0 8px" }}>
-            Welkom bij FixIt Pro
+            Welkom bij Fixora Pro
           </h1>
           <p style={{ color: "#64748b", fontSize: 15, margin: 0 }}>
             Laten we je account in 2 stappen instellen.
@@ -231,7 +231,7 @@ function OnboardingContent() {
             {[
               { n: 1, title: "Open de Theme Editor", desc: `Ga in Shopify naar Online Store → Themes → Customize.` },
               { n: 2, title: "Voeg een sectie toe", desc: `Klik op "Add section" op de pagina waar je het formulier wilt plaatsen.` },
-              { n: 3, title: "Zoek FixIt Pro", desc: `Zoek naar "FixIt Pro Reparatieformulier" en voeg het toe.` },
+              { n: 3, title: "Zoek Fixora Pro", desc: `Zoek naar "Fixora Pro Reparatieformulier" en voeg het toe.` },
               { n: 4, title: "Sla op", desc: `Klik op "Save" — het formulier staat nu live op je shop.` },
             ].map(({ n, title, desc }) => (
               <div key={n} style={{ display: "flex", gap: 14, marginBottom: 18 }}>
