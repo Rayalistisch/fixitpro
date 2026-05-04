@@ -92,7 +92,8 @@ function getInitials(name: string) {
 }
 
 export default function AdminPage() {
-  const { companyName } = useContext(ShopContext);
+  const { companyName, shop } = useContext(ShopContext);
+  const shopQ = shop ? `&shop=${encodeURIComponent(shop)}` : "";
   const [rows, setRows] = useState<Row[]>([]);
   const [filter, setFilter] = useState<"pending" | "awaiting_approval" | "approved" | "rejected" | "all">("pending");
   const [status, setStatus] = useState("Laden…");
@@ -145,7 +146,8 @@ export default function AdminPage() {
     if (!silent) setStatus("Aanvragen laden…");
 
     try {
-      const params = filter !== "all" ? `?status=${filter}` : "";
+      const parts = [filter !== "all" ? `status=${filter}` : "", shopQ ? shopQ.slice(1) : ""].filter(Boolean).join("&");
+      const params = parts ? `?${parts}` : "";
       const res = await fetch(`/api/requests${params}`);
       const data = await res.json();
 
@@ -172,7 +174,7 @@ export default function AdminPage() {
     setStatus("Goedkeuren…");
 
     try {
-      const res = await fetch("/api/approve", {
+      const res = await fetch(`/api/approve?shop=${encodeURIComponent(shop)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
@@ -206,7 +208,7 @@ export default function AdminPage() {
     setStatus("Afwijzen…");
 
     try {
-      const res = await fetch("/api/reject", {
+      const res = await fetch(`/api/reject?shop=${encodeURIComponent(shop)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, reason: (reason || "").trim() }),
@@ -236,7 +238,7 @@ export default function AdminPage() {
     setBusyId(id);
     setStatus("Offerte versturen…");
     try {
-      const res = await fetch("/api/offer", {
+      const res = await fetch(`/api/offer?shop=${encodeURIComponent(shop)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
@@ -275,7 +277,7 @@ export default function AdminPage() {
     setStatus("Opslaan…");
 
     try {
-      const res = await fetch("/api/update-request", {
+      const res = await fetch(`/api/update-request?shop=${encodeURIComponent(shop)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, patch: draft }),
