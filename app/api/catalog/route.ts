@@ -28,6 +28,7 @@ export async function GET(req: Request) {
   const brand = searchParams.get("brand") || "";
   const model = searchParams.get("model") || "";
   const search = searchParams.get("q") || "";
+  const shop = searchParams.get("shop") || "";
   const brandsOnly = searchParams.get("brands") === "1";
 
   try {
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
 
     // Alle unieke merken via RPC (geen limit)
     if (brandsOnly) {
-      const { data, error } = await sb.rpc("get_brands");
+      const { data, error } = await sb.rpc("get_brands", shop ? { p_shop_domain: shop } : {});
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json(data ?? []);
     }
@@ -47,11 +48,9 @@ export async function GET(req: Request) {
       let offset = 0;
       const modelSet = new Set<string>();
       while (true) {
-        const { data, error } = await sb
-          .from("repair_catalog")
-          .select("model")
-          .eq("brand", brand)
-          .range(offset, offset + PAGE - 1);
+        let q = sb.from("repair_catalog").select("model").eq("brand", brand).range(offset, offset + PAGE - 1);
+        if (shop) q = q.eq("shop_domain", shop);
+        const { data, error } = await q;
         if (error) return NextResponse.json({ error: error.message }, { status: 500 });
         if (!data || data.length === 0) break;
         data.forEach((r: { model: string }) => modelSet.add(r.model));
@@ -61,23 +60,30 @@ export async function GET(req: Request) {
       return NextResponse.json([...modelSet].sort());
     }
 
-    let q = sb
-      .from("repair_catalog")
-      .select("id, brand, model, color, repair_type, quality, price, show_quality")
-      .order("brand")
-      .order("model")
-      .order("color")
-      .order("repair_type")
-      .order("quality")
-      .limit(500);
+    // Pagineer zodat we altijd alle rijen ophalen, ook bij grote catalogi
+    const PAGE = 1000;
+    let offset = 0;
+    const all: any[] = [];
+    while (true) {
+      let q = sb
+        .from("repair_catalog")
+        .select("id, brand, model, color, repair_type, quality, price, show_quality")
+        .order("brand").order("model").order("color").order("repair_type").order("quality")
+        .range(offset, offset + PAGE - 1);
 
-    if (brand) q = q.eq("brand", brand);
-    if (model) q = q.eq("model", model);
-    if (search) q = q.or(`brand.ilike.%${search}%,model.ilike.%${search}%,repair_type.ilike.%${search}%`);
+      if (brand) q = q.eq("brand", brand);
+      if (model) q = q.eq("model", model);
+      if (shop) q = q.eq("shop_domain", shop);
+      if (search) q = q.or(`brand.ilike.%${search}%,model.ilike.%${search}%,repair_type.ilike.%${search}%`);
 
-    const { data, error } = await q;
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data);
+      const { data, error } = await q;
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      if (!data || data.length === 0) break;
+      all.push(...data);
+      if (data.length < PAGE) break;
+      offset += PAGE;
+    }
+    return NextResponse.json(all);
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
