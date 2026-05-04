@@ -38,10 +38,11 @@ export async function GET(req: Request) {
 
   try {
     // Wissel code voor access token
+    const resolvedApiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
     console.log("TOKEN EXCHANGE DEBUG:", {
       shop,
-      api_key_prefix: (process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "").slice(0, 6),
-      secret_prefix: (process.env.SHOPIFY_API_SECRET ?? "").slice(0, 6),
+      api_key_prefix: resolvedApiKey.slice(0, 8),
+      secret_set: !!(process.env.SHOPIFY_API_SECRET),
       code_prefix: code.slice(0, 6),
     });
     const { access_token, scope } = await exchangeCodeForToken(shop, code);

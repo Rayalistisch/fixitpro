@@ -135,7 +135,7 @@ export async function requireShopSession(req: Request): Promise<Shop> {
 
 // ── Shopify OAuth helpers ────────────────────────────────────────────────────
 export function buildAuthUrl(shop: string, state: string): string {
-  const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY!;
+  const apiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
   const scopes = process.env.SHOPIFY_SCOPES ?? "read_themes,write_themes";
   const redirectUri = `${process.env.APP_URL}/api/auth/callback`;
   return (
@@ -155,7 +155,7 @@ export async function exchangeCodeForToken(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      client_id: process.env.SHOPIFY_API_KEY,
+      client_id: process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY,
       client_secret: process.env.SHOPIFY_API_SECRET,
       code,
     }),
