@@ -6,281 +6,388 @@
 
   const PROXY = root.dataset.proxyBase || "/apps/reparatie";
 
+  // Kleurmapping voor visuele chips
+  const COLOR_MAP = {
+    "zwart": "#1c1c1e", "black": "#1c1c1e",
+    "wit": "#f5f5f7", "white": "#f5f5f7",
+    "space black": "#1c1c1e", "space gray": "#3a3a3c", "space grey": "#3a3a3c",
+    "silver": "#c0c0c8", "zilver": "#c0c0c8",
+    "goud": "#d4af7a", "gold": "#d4af7a",
+    "rose gold": "#e8b4a0", "rosé": "#e8b4a0",
+    "blauw": "#3a7bd5", "blue": "#3a7bd5",
+    "rood": "#e03040", "red": "#e03040",
+    "groen": "#34a853", "green": "#34a853",
+    "grijs": "#8e8e93", "gray": "#8e8e93", "grey": "#8e8e93",
+    "paars": "#8b5cf6", "purple": "#8b5cf6",
+    "geel": "#f59e0b", "yellow": "#f59e0b",
+    "oranje": "#f97316", "orange": "#f97316",
+    "roze": "#ec4899", "pink": "#ec4899",
+    "titanium": "#878681", "natural titanium": "#c4b8a8",
+    "deep purple": "#4c1d95", "midnight": "#1c1c1e",
+    "starlight": "#f5f0e8", "product red": "#bf0013",
+    "coral": "#ff7f7f", "teal": "#008080",
+  };
+
+  function colorHex(name) {
+    return COLOR_MAP[(name || "").toLowerCase()] || "#94a3b8";
+  }
+
   // ── State ────────────────────────────────────────────────────────────────
-  let state = {
-    step: 1, // 1 = toestel, 2 = aanvraag
+  let S = {
+    step: 1,
     brands: [], models: [], colors: [], repairs: [], qualities: [],
-    sel: { brand: "", model: "", color: "", repair: "", quality: "", price: 0, showQuality: false },
+    brand: "", model: "", color: "", repair: "", quality: "", price: 0,
     form: { name: "", email: "", phone: "", date: "", time: "", notes: "" },
     loading: false, error: "", submitted: false,
   };
 
   // ── API ──────────────────────────────────────────────────────────────────
   async function api(path) {
-    const res = await fetch(PROXY + path);
-    if (!res.ok) throw new Error("Laad fout (" + res.status + ")");
-    return res.json();
+    const r = await fetch(PROXY + path);
+    if (!r.ok) throw new Error("Laad fout (" + r.status + ")");
+    return r.json();
   }
 
-  async function load(setter, path) {
-    state.loading = true; render();
-    try { setter(await api(path)); }
-    catch (e) { state.error = e.message; }
-    state.loading = false; render();
+  async function go(fn) {
+    S.loading = true; S.error = ""; render();
+    try { await fn(); } catch (e) { S.error = e.message; }
+    S.loading = false; render();
   }
 
   // ── Render ───────────────────────────────────────────────────────────────
   function render() {
     root.innerHTML = "";
-    if (state.submitted) { root.appendChild(renderDone()); return; }
 
-    const wrap = el("div", "rw-wrap");
+    const wrap = el("div", "rw-root");
+    const inner = el("div", "gsmrt__wrap");
 
-    // Header
-    const header = el("div", "rw-header");
-    const steps = ["Toestel", "Aanvraag"];
-    steps.forEach((label, i) => {
-      const step = el("div", "rw-step-indicator" + (i + 1 === state.step ? " rw-step-active" : (i + 1 < state.step ? " rw-step-done" : "")));
-      const num = el("span", "rw-step-num"); num.textContent = i + 1;
-      const lbl = el("span", "rw-step-label"); lbl.textContent = label;
-      step.appendChild(num); step.appendChild(lbl);
-      header.appendChild(step);
-      if (i < steps.length - 1) {
-        const line = el("div", "rw-step-line"); header.appendChild(line);
-      }
-    });
-    wrap.appendChild(header);
-
-    if (state.error) {
-      const err = el("div", "rw-error"); err.textContent = state.error;
-      wrap.appendChild(err);
+    if (S.submitted) {
+      inner.appendChild(renderDone());
+      wrap.appendChild(inner);
+      root.appendChild(wrap);
+      return;
     }
 
-    // Body: twee kolommen
-    const body = el("div", "rw-body");
-    body.appendChild(state.step === 1 ? renderStep1() : renderStep2());
-    body.appendChild(renderSidebar());
-    wrap.appendChild(body);
+    // Stap-indicator
+    inner.appendChild(renderSteps());
 
+    if (S.error) {
+      const err = el("div", "gsmrt__alert gsmrt__alert--error");
+      err.textContent = S.error;
+      inner.appendChild(err);
+    }
+
+    // Grid
+    const grid = el("div", "gsmrt__grid");
+    const main = el("div", "gsmrt__card");
+
+    if (S.step === 1) {
+      main.appendChild(renderStep1());
+    } else {
+      main.appendChild(renderStep2());
+    }
+
+    grid.appendChild(main);
+    grid.appendChild(renderSidebar());
+    inner.appendChild(grid);
+    wrap.appendChild(inner);
     root.appendChild(wrap);
   }
 
-  // ── Stap 1: Toestel ──────────────────────────────────────────────────────
-  function renderStep1() {
-    const col = el("div", "rw-col-main");
+  function renderSteps() {
+    const bar = el("div", "gsmrt__steps");
 
-    // Merk
-    col.appendChild(selectGroup("Merk", "Kies een merk...", state.brands, r => r.brand || r, state.sel.brand, async val => {
-      state.sel = { ...state.sel, brand: val, model: "", color: "", repair: "", quality: "", price: 0 };
-      state.models = []; state.colors = []; state.repairs = []; state.qualities = [];
-      await load(d => { state.models = d; }, "/catalog?models=1&brand=" + enc(val));
+    ["Toestel", "Aanvraag"].forEach((label, i) => {
+      if (i > 0) { const line = el("div", "gsmrt__line"); bar.appendChild(line); }
+      const btn = el("button", "gsmrt__step" + (i + 1 === S.step ? " is-active" : ""));
+      btn.disabled = i + 1 > S.step;
+      btn.onclick = () => { if (i + 1 <= S.step) { S.step = i + 1; render(); } };
+      const num = el("span", "gsmrt__num"); num.textContent = i + 1;
+      btn.appendChild(num);
+      btn.appendChild(document.createTextNode(label));
+      bar.appendChild(btn);
+    });
+
+    return bar;
+  }
+
+  // ── Stap 1 ───────────────────────────────────────────────────────────────
+  function renderStep1() {
+    const frag = document.createDocumentFragment();
+
+    // Merk — typeahead
+    frag.appendChild(renderTypeahead("Merk", "Zoek merk...", S.brands, r => r.brand || r, S.brand, async val => {
+      S.brand = val; S.model = ""; S.color = ""; S.repair = ""; S.quality = ""; S.price = 0;
+      S.models = []; S.colors = []; S.repairs = []; S.qualities = [];
+      await go(async () => { S.models = await api("/catalog?models=1&brand=" + enc(val)); });
     }));
 
-    // Model
-    col.appendChild(selectGroup("Model", "Kies eerst een merk...", state.models, r => r.model || r, state.sel.model, async val => {
-      state.sel = { ...state.sel, model: val, color: "", repair: "", quality: "", price: 0 };
-      state.colors = []; state.repairs = []; state.qualities = [];
-      await load(d => { state.colors = d.map(r => r.color || r); }, "/catalog?rpc=get_colors&brand=" + enc(state.sel.brand) + "&model=" + enc(val));
-    }, !state.sel.brand));
+    // Model — typeahead (alleen als merk gekozen)
+    if (S.brand) {
+      const g = el("div", "gsmrt__group gsmrt__group--reveal");
+      g.appendChild(renderTypeahead("Model", "Zoek model...", S.models, r => r.model || r, S.model, async val => {
+        S.model = val; S.color = ""; S.repair = ""; S.quality = ""; S.price = 0;
+        S.colors = []; S.repairs = []; S.qualities = [];
+        await go(async () => {
+          const d = await api("/catalog?rpc=get_colors&brand=" + enc(S.brand) + "&model=" + enc(val));
+          S.colors = d.map(r => r.color || r);
+        });
+      }));
+      frag.appendChild(g);
+    }
 
-    // Kleur
-    col.appendChild(selectGroup("Kleur", "Kies eerst een merk...", state.colors, r => r, state.sel.color, async val => {
-      state.sel = { ...state.sel, color: val, repair: "", quality: "", price: 0 };
-      state.repairs = []; state.qualities = [];
-      await load(d => { state.repairs = d.map(r => r.repair_type || r); },
-        "/catalog?rpc=get_repair_types&brand=" + enc(state.sel.brand) + "&model=" + enc(state.sel.model) + "&color=" + enc(val));
-    }, !state.sel.model));
+    // Kleur — visuele chips
+    if (S.model && S.colors.length) {
+      const g = el("div", "gsmrt__group gsmrt__group--reveal");
+      const lbl = el("div", "gsmrt__label"); lbl.textContent = "Kleur";
+      g.appendChild(lbl);
 
-    // Reparatie
-    col.appendChild(selectGroup("Reparatie", "Kies eerst een kleur...", state.repairs, r => r, state.sel.repair, async val => {
-      state.sel = { ...state.sel, repair: val, quality: "", price: 0 };
-      state.qualities = [];
-      await load(d => {
-        state.qualities = d;
-        // Als er maar 1 optie is of show_quality false: auto-select
-        if (d.length === 1) {
-          state.sel.quality = d[0].quality || "";
-          state.sel.price = parseFloat(d[0].price) || 0;
-          state.sel.showQuality = false;
-        } else if (d.length > 1) {
-          state.sel.showQuality = d[0].show_quality;
-        }
-      }, "/catalog?rpc=get_qualities_prices&brand=" + enc(state.sel.brand) + "&model=" + enc(state.sel.model) + "&color=" + enc(state.sel.color) + "&repair_type=" + enc(val));
-    }, !state.sel.color));
+      const grid = el("div", "gsmrt__colorgrid");
+      S.colors.forEach(c => {
+        const wrap = el("div", "gsmrt__colorwrap");
+        const chip = el("button", "gsmrt__colorchip" + (S.color === c ? " is-active" : ""));
+        chip.style.background = colorHex(c);
+        chip.title = c;
+        chip.onclick = async () => {
+          S.color = c; S.repair = ""; S.quality = ""; S.price = 0;
+          S.repairs = []; S.qualities = [];
+          await go(async () => {
+            const d = await api("/catalog?rpc=get_repair_types&brand=" + enc(S.brand) + "&model=" + enc(S.model) + "&color=" + enc(c));
+            S.repairs = d.map(r => r.repair_type || r);
+          });
+        };
+        const lbl2 = el("span", "gsmrt__colorlabel"); lbl2.textContent = c;
+        wrap.appendChild(chip); wrap.appendChild(lbl2);
+        grid.appendChild(wrap);
+      });
 
-    // Kwaliteit (alleen als meerdere opties)
-    if (state.sel.repair && state.qualities.length > 1 && state.sel.showQuality) {
-      col.appendChild(selectGroup("Kwaliteit", "Kies een kwaliteit...", state.qualities,
-        r => (r.quality || "Standaard") + (r.price ? " — €" + parseFloat(r.price).toFixed(2) : ""),
-        state.sel.quality,
-        val => {
-          const q = state.qualities.find(r => r.quality === val);
-          state.sel.quality = val;
-          state.sel.price = q ? parseFloat(q.price) || 0 : 0;
+      g.appendChild(grid);
+      frag.appendChild(g);
+    }
+
+    // Reparatietype — kaarten
+    if (S.color && S.repairs.length) {
+      const g = el("div", "gsmrt__group gsmrt__group--reveal");
+      const lbl = el("div", "gsmrt__label"); lbl.textContent = "Reparatie";
+      g.appendChild(lbl);
+
+      const grid = el("div", "gsmrt__issuegrid");
+      S.repairs.forEach(r => {
+        const card = el("button", "gsmrt__repaircard" + (S.repair === r ? " is-active" : ""));
+        const head = el("div", "gsmrt__repairhead");
+        const title = el("div", "gsmrt__repairtitle"); title.textContent = r;
+        head.appendChild(title);
+        card.appendChild(head);
+        card.onclick = async () => {
+          S.repair = r; S.quality = ""; S.price = 0;
+          S.qualities = [];
+          await go(async () => {
+            S.qualities = await api("/catalog?rpc=get_qualities_prices&brand=" + enc(S.brand) + "&model=" + enc(S.model) + "&color=" + enc(S.color) + "&repair_type=" + enc(r));
+            if (S.qualities.length === 1) {
+              S.quality = S.qualities[0].quality || "";
+              S.price = parseFloat(S.qualities[0].price) || 0;
+            }
+          });
+        };
+        grid.appendChild(card);
+      });
+
+      g.appendChild(grid);
+      frag.appendChild(g);
+    }
+
+    // Kwaliteit — chips (alleen als meerdere en show_quality)
+    if (S.repair && S.qualities.length > 1 && S.qualities[0].show_quality) {
+      const g = el("div", "gsmrt__group gsmrt__group--reveal");
+      const lbl = el("div", "gsmrt__label"); lbl.textContent = "Kwaliteit";
+      g.appendChild(lbl);
+
+      const grid = el("div", "gsmrt__qualitygrid");
+      S.qualities.forEach(q => {
+        const chip = el("button", "gsmrt__qualitychip" + (S.quality === q.quality ? " is-active" : ""));
+        const name = el("div", "gsmrt__qname"); name.textContent = q.quality || "Standaard";
+        const price = el("div", "gsmrt__qprice"); price.textContent = q.price ? "€" + parseFloat(q.price).toFixed(2) : "Op aanvraag";
+        chip.appendChild(name); chip.appendChild(price);
+        chip.onclick = () => {
+          S.quality = q.quality || "";
+          S.price = parseFloat(q.price) || 0;
           render();
-        }, false));
+        };
+        grid.appendChild(chip);
+      });
+
+      g.appendChild(grid);
+      frag.appendChild(g);
+    }
+
+    // Laden indicator
+    if (S.loading) {
+      const ld = el("div", "gsmrt__loading"); ld.textContent = "Laden…";
+      frag.appendChild(ld);
     }
 
     // Volgende stap knop
-    const canNext = state.sel.brand && state.sel.model && state.sel.color && state.sel.repair &&
-      (state.qualities.length <= 1 || !state.sel.showQuality || state.sel.quality);
+    const canNext = S.brand && S.model && S.color && S.repair &&
+      (S.qualities.length <= 1 || !S.qualities[0]?.show_quality || S.quality);
 
-    const btn = el("button", "rw-btn-primary" + (canNext ? "" : " rw-btn-disabled"));
-    btn.textContent = "Volgende Stap";
-    const sub = el("span", "rw-btn-sub"); sub.textContent = "Je betaalt pas na de reparatie";
-    btn.appendChild(sub);
-    btn.disabled = !canNext;
-    btn.onclick = () => { if (canNext) { state.step = 2; render(); } };
-    col.appendChild(btn);
+    const actions = el("div", "gsmrt__actions");
+    const btn = el("button", "gsmrt__btn gsmrt__btn--primary");
+    btn.disabled = !canNext || S.loading;
+    btn.textContent = "Volgende stap →";
+    btn.onclick = () => { if (canNext) { S.step = 2; render(); } };
+    actions.appendChild(btn);
+    frag.appendChild(actions);
 
-    return col;
+    return frag;
   }
 
-  function selectGroup(label, placeholder, items, labelFn, value, onChange, disabled = false) {
-    const wrap = el("div", "rw-field");
-    const lbl = el("label", "rw-label"); lbl.textContent = label;
-    const sel = el("select", "rw-select" + (disabled ? " rw-disabled" : ""));
-    sel.disabled = disabled || state.loading;
+  // ── Typeahead component ──────────────────────────────────────────────────
+  function renderTypeahead(labelText, placeholder, items, labelFn, value, onSelect) {
+    const group = el("div", "gsmrt__group");
+    const lbl = el("div", "gsmrt__label"); lbl.textContent = labelText;
+    group.appendChild(lbl);
 
-    const opt0 = el("option"); opt0.value = ""; opt0.textContent = placeholder; opt0.disabled = true;
-    sel.appendChild(opt0);
+    const ta = el("div", "gsmrt__typeahead");
+    const inp = el("input", "gsmrt__input");
+    inp.type = "text";
+    inp.placeholder = placeholder;
+    inp.value = value || "";
+    inp.autocomplete = "off";
+    inp.disabled = S.loading;
 
-    items.forEach(item => {
-      const opt = el("option");
-      opt.value = (typeof item === "string" ? item : (item.brand || item.model || item.color || item.repair_type || item.quality || ""));
-      opt.textContent = labelFn(item);
-      if (opt.value === value) opt.selected = true;
-      sel.appendChild(opt);
+    const results = el("div", "gsmrt__results");
+
+    function showItems(filter) {
+      results.innerHTML = "";
+      const filtered = items.filter(i => labelFn(i).toLowerCase().includes(filter.toLowerCase()));
+      filtered.slice(0, 30).forEach(item => {
+        const div = el("div", "gsmrt__result-item");
+        div.textContent = labelFn(item);
+        div.onmousedown = async () => {
+          inp.value = labelFn(item);
+          results.style.display = "none";
+          await onSelect(labelFn(item));
+        };
+        results.appendChild(div);
+      });
+      results.style.display = filtered.length ? "block" : "none";
+    }
+
+    inp.onfocus = () => { if (items.length) showItems(inp.value); };
+    inp.oninput = () => showItems(inp.value);
+    inp.onblur = () => setTimeout(() => { results.style.display = "none"; }, 150);
+
+    ta.appendChild(inp);
+    ta.appendChild(results);
+    group.appendChild(ta);
+    return group;
+  }
+
+  // ── Stap 2 ───────────────────────────────────────────────────────────────
+  function renderStep2() {
+    const frag = document.createDocumentFragment();
+
+    const form = el("form", "");
+    form.onsubmit = async e => { e.preventDefault(); await submitRequest(); };
+
+    const fields = [
+      ["Naam *", "text", "name", true],
+      ["E-mailadres *", "email", "email", true],
+      ["Telefoonnummer", "tel", "phone", false],
+      ["Voorkeursdatum", "date", "date", false],
+      ["Voorkeurstijd", "time", "time", false],
+    ];
+
+    fields.forEach(([label, type, key, req]) => {
+      const g = el("div", "gsmrt__group");
+      const lbl = el("div", "gsmrt__label"); lbl.textContent = label;
+      const inp = el("input", "gsmrt__input");
+      inp.type = type; inp.required = req;
+      inp.value = S.form[key] || "";
+      inp.oninput = e => { S.form[key] = e.target.value; };
+      g.appendChild(lbl); g.appendChild(inp);
+      form.appendChild(g);
     });
 
-    if (!value) sel.value = "";
+    const notesG = el("div", "gsmrt__group");
+    const notesLbl = el("div", "gsmrt__label"); notesLbl.textContent = "Opmerking";
+    const ta = el("textarea", "gsmrt__textarea");
+    ta.rows = 3; ta.value = S.form.notes;
+    ta.oninput = e => { S.form.notes = e.target.value; };
+    notesG.appendChild(notesLbl); notesG.appendChild(ta);
+    form.appendChild(notesG);
 
-    sel.onchange = async e => {
-      state.error = "";
-      await onChange(e.target.value);
-    };
+    const actions = el("div", "gsmrt__actions");
+    const submit = el("button", "gsmrt__btn gsmrt__btn--primary");
+    submit.type = "submit";
+    submit.disabled = S.loading;
+    submit.textContent = S.loading ? "Versturen…" : "Aanvraag versturen";
+    actions.appendChild(submit);
+    form.appendChild(actions);
 
-    wrap.appendChild(lbl);
-    wrap.appendChild(sel);
-    return wrap;
-  }
+    frag.appendChild(form);
 
-  // ── Stap 2: Aanvraag ─────────────────────────────────────────────────────
-  function renderStep2() {
-    const col = el("div", "rw-col-main");
-
-    const form = el("form", "rw-form");
-    form.appendChild(inputField("Naam *", "text", "name", true));
-    form.appendChild(inputField("E-mailadres *", "email", "email", true));
-    form.appendChild(inputField("Telefoonnummer", "tel", "phone", false));
-    form.appendChild(inputField("Voorkeursdatum", "date", "date", false));
-    form.appendChild(inputField("Voorkeurstijd", "time", "time", false));
-
-    const notesWrap = el("div", "rw-field");
-    const notesLbl = el("label", "rw-label"); notesLbl.textContent = "Opmerking";
-    const textarea = el("textarea", "rw-select");
-    textarea.rows = 3;
-    textarea.value = state.form.notes;
-    textarea.oninput = e => { state.form.notes = e.target.value; };
-    notesWrap.appendChild(notesLbl);
-    notesWrap.appendChild(textarea);
-    form.appendChild(notesWrap);
-
-    const submitBtn = el("button", "rw-btn-primary");
-    submitBtn.type = "submit";
-    submitBtn.textContent = state.loading ? "Versturen…" : "Verstuur aanvraag";
-    submitBtn.disabled = state.loading;
-    form.appendChild(submitBtn);
-
-    form.onsubmit = async e => {
-      e.preventDefault();
-      await submitRequest();
-    };
-
-    col.appendChild(form);
-
-    const back = el("button", "rw-btn-back");
+    const back = el("button", "gsmrt__btn gsmrt__btn--ghost");
     back.type = "button";
-    back.textContent = "← Terug naar toestel";
-    back.onclick = () => { state.step = 1; render(); };
-    col.appendChild(back);
+    back.style.marginTop = "10px";
+    back.textContent = "← Terug";
+    back.onclick = () => { S.step = 1; render(); };
+    frag.appendChild(back);
 
-    return col;
-
-    function inputField(label, type, key, required) {
-      const wrap = el("div", "rw-field");
-      const lbl = el("label", "rw-label"); lbl.textContent = label;
-      const inp = el("input", "rw-select");
-      inp.type = type; inp.required = required;
-      inp.value = state.form[key] || "";
-      inp.oninput = e => { state.form[key] = e.target.value; };
-      wrap.appendChild(lbl); wrap.appendChild(inp);
-      return wrap;
-    }
+    return frag;
   }
 
-  // ── Sidebar ───────────────────────────────────────────────────────────────
+  // ── Sidebar samenvatting ──────────────────────────────────────────────────
   function renderSidebar() {
-    const side = el("div", "rw-sidebar");
-    const title = el("div", "rw-sidebar-title"); title.textContent = "Reparatie lijst";
+    const side = el("div", "gsmrt__card gsmrt__side");
+
+    const title = el("div", "gsmrt__summary-title"); title.textContent = "Jouw selectie";
     side.appendChild(title);
 
-    const s = state.sel;
-    const hasDevice = s.brand || s.model;
+    const rows = [
+      S.brand && ["Merk", S.brand],
+      S.model && ["Model", S.model],
+      S.color && ["Kleur", S.color],
+      S.repair && ["Reparatie", S.repair],
+      S.quality && ["Kwaliteit", S.quality],
+    ].filter(Boolean);
 
-    if (!hasDevice) {
-      const msg = el("div", "rw-sidebar-empty"); msg.textContent = "Kies een toestel";
-      side.appendChild(msg);
+    if (!rows.length) {
+      const empty = el("div", "gsmrt__summary-empty"); empty.textContent = "Kies een toestel";
+      side.appendChild(empty);
     } else {
-      const rows = [
-        [s.brand + (s.model ? " " + s.model : ""), null],
-        s.color ? [s.color, null] : null,
-        s.repair ? [s.repair, s.price ? "€" + s.price.toFixed(2) : "Op aanvraag"] : null,
-        s.quality && s.showQuality ? ["Kwaliteit: " + s.quality, null] : null,
-      ].filter(Boolean);
-
-      rows.forEach(([label, price]) => {
-        const row = el("div", "rw-sidebar-row");
-        const lbl = el("span"); lbl.textContent = label;
-        row.appendChild(lbl);
-        if (price) { const p = el("span", "rw-sidebar-price"); p.textContent = price; row.appendChild(p); }
+      rows.forEach(([k, v]) => {
+        const row = el("div", "gsmrt__summary-row");
+        const key = el("span"); key.textContent = k;
+        const val = el("span", "gsmrt__summary-val"); val.textContent = v;
+        row.appendChild(key); row.appendChild(val);
         side.appendChild(row);
       });
+
+      const divider = el("div", "gsmrt__summary-row gsmrt__summary-total");
+      const pl = el("span"); pl.textContent = "Richtprijs";
+      const pv = el("span", "gsmrt__summary-val");
+      pv.style.color = "var(--primary)";
+      pv.textContent = S.price ? "€" + S.price.toFixed(2) : (S.repair ? "Op aanvraag" : "-");
+      divider.appendChild(pl); divider.appendChild(pv);
+      side.appendChild(divider);
     }
-
-    const divider = el("div", "rw-sidebar-divider");
-    side.appendChild(divider);
-
-    const subtotalRow = el("div", "rw-sidebar-row");
-    const subLbl = el("span"); subLbl.textContent = "Subtotaal";
-    const subVal = el("span"); subVal.textContent = s.price ? "€" + s.price.toFixed(2) : "-";
-    subtotalRow.appendChild(subLbl); subtotalRow.appendChild(subVal);
-    side.appendChild(subtotalRow);
-
-    const totalRow = el("div", "rw-sidebar-row rw-sidebar-total");
-    const totLbl = el("span");
-    const bold = el("strong"); bold.textContent = "Totaal";
-    const incl = el("small"); incl.textContent = " incl. btw (21%)";
-    totLbl.appendChild(bold); totLbl.appendChild(incl);
-    const totVal = el("strong"); totVal.textContent = s.price ? "€" + s.price.toFixed(2) : "-";
-    totalRow.appendChild(totLbl); totalRow.appendChild(totVal);
-    side.appendChild(totalRow);
 
     return side;
   }
 
   // ── Done ──────────────────────────────────────────────────────────────────
   function renderDone() {
-    const wrap = el("div", "rw-done");
-    const icon = el("div", "rw-done-icon"); icon.textContent = "✓";
+    const wrap = el("div", "gsmrt__card gsmrt__done");
+    const icon = el("div", "gsmrt__done-icon"); icon.textContent = "✓";
     const h = el("h3"); h.textContent = "Aanvraag ontvangen!";
     const p = el("p"); p.textContent = "We nemen zo snel mogelijk contact met je op.";
-    const btn = el("button", "rw-btn-secondary");
+    const btn = el("button", "gsmrt__btn gsmrt__btn--ghost");
     btn.textContent = "Nieuwe aanvraag";
     btn.onclick = () => {
-      state = {
-        step: 1, brands: state.brands, models: [], colors: [], repairs: [], qualities: [],
-        sel: { brand: "", model: "", color: "", repair: "", quality: "", price: 0, showQuality: false },
+      S = {
+        step: 1, brands: S.brands, models: [], colors: [], repairs: [], qualities: [],
+        brand: "", model: "", color: "", repair: "", quality: "", price: 0,
         form: { name: "", email: "", phone: "", date: "", time: "", notes: "" },
         loading: false, error: "", submitted: false,
       };
@@ -292,29 +399,22 @@
 
   // ── Submit ────────────────────────────────────────────────────────────────
   async function submitRequest() {
-    state.loading = true; state.error = ""; render();
-    try {
+    await go(async () => {
       const res = await fetch(PROXY + "/create-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customer_name: state.form.name,
-          customer_email: state.form.email,
-          customer_phone: state.form.phone,
-          brand: state.sel.brand, model: state.sel.model,
-          color: state.sel.color, issue: state.sel.repair,
-          quality: state.sel.quality,
-          price_text: state.sel.price ? "€" + state.sel.price.toFixed(2) : "Op aanvraag",
-          preferred_date: state.form.date,
-          preferred_time: state.form.time,
-          notes: state.form.notes,
+          customer_name: S.form.name, customer_email: S.form.email,
+          customer_phone: S.form.phone, brand: S.brand, model: S.model,
+          color: S.color, issue: S.repair, quality: S.quality,
+          price_text: S.price ? "€" + S.price.toFixed(2) : "Op aanvraag",
+          preferred_date: S.form.date, preferred_time: S.form.time, notes: S.form.notes,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Onbekende fout");
-      state.submitted = true;
-    } catch (e) { state.error = e.message; }
-    state.loading = false; render();
+      S.submitted = true;
+    });
   }
 
   // ── Utils ─────────────────────────────────────────────────────────────────
@@ -326,5 +426,5 @@
   function enc(s) { return encodeURIComponent(s || ""); }
 
   // ── Boot ──────────────────────────────────────────────────────────────────
-  load(d => { state.brands = d; }, "/catalog?brands=1");
+  go(async () => { S.brands = await api("/catalog?brands=1"); });
 })();

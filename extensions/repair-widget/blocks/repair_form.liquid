@@ -1,9 +1,14 @@
 {{ 'repair-widget.css' | asset_url | stylesheet_tag }}
 
+{% if section.settings.title != blank %}
+  <h2 style="text-align:center;font-size:clamp(1.6rem,2.4vw,2.8rem);font-weight:900;color:#003b4a;margin:0 0 24px;letter-spacing:-.02em">
+    {{ section.settings.title }}
+  </h2>
+{% endif %}
+
 <div
   id="repair-widget-root"
   data-proxy-base="/apps/reparatie"
-  style="max-width:{{ section.settings.max_width }}px;margin:0 auto"
 ></div>
 
 {{ 'repair-widget.js' | asset_url | script_tag }}
