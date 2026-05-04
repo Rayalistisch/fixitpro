@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardShell from "../components/DashboardShell";
 
 const WEEKDAYS = ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"];
@@ -31,7 +32,10 @@ type Appointment = {
   preferred_time?: string;
 };
 
-export default function PlanningPage() {
+function PlanningPageInner() {
+  const searchParams = useSearchParams();
+  const shop = searchParams.get("shop") ?? "";
+
   const [rows, setRows] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(() => {
@@ -43,11 +47,12 @@ export default function PlanningPage() {
   const [modal, setModal] = useState<Appointment | null>(null);
 
   useEffect(() => {
-    fetch("/api/requests?status=approved")
+    const q = shop ? `?status=approved&shop=${encodeURIComponent(shop)}` : "?status=approved";
+    fetch(`/api/requests${q}`)
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setRows(data); setLoading(false); })
       .catch(() => setLoading(false));
-  }, []);
+  }, [shop]);
 
   const byDate = useMemo(() => {
     const map = new Map<string, Appointment[]>();
@@ -181,6 +186,14 @@ export default function PlanningPage() {
         </div>
       )}
     </DashboardShell>
+  );
+}
+
+export default function PlanningPage() {
+  return (
+    <Suspense fallback={null}>
+      <PlanningPageInner />
+    </Suspense>
   );
 }
 

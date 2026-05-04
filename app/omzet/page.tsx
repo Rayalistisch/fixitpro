@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import DashboardShell from "../components/DashboardShell";
 
 function parsePrice(text: string): number | null {
@@ -126,13 +127,17 @@ function KpiCard({
   );
 }
 
-export default function OmzetPage() {
+function OmzetPageInner() {
+  const searchParams = useSearchParams();
+  const shop = searchParams.get("shop") ?? "";
+
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
 
   useEffect(() => {
-    fetch("/api/requests?status=approved")
+    const q = shop ? `?status=approved&shop=${encodeURIComponent(shop)}` : "?status=approved";
+    fetch(`/api/requests${q}`)
       .then((r) => r.json())
       .then((data) => {
         if (!Array.isArray(data)) { setFetchError("Fout bij laden."); setLoading(false); return; }
@@ -140,7 +145,7 @@ export default function OmzetPage() {
         setLoading(false);
       })
       .catch(() => { setFetchError("Netwerkfout bij laden."); setLoading(false); });
-  }, []);
+  }, [shop]);
 
   const withPrice = useMemo(() => rows.filter((r) => parsePrice(r.price_text) !== null), [rows]);
   const totalOmzet = useMemo(() => withPrice.reduce((s, r) => s + (parsePrice(r.price_text) ?? 0), 0), [withPrice]);
@@ -199,6 +204,14 @@ export default function OmzetPage() {
         </div>
       </main>
     </DashboardShell>
+  );
+}
+
+export default function OmzetPage() {
+  return (
+    <Suspense fallback={null}>
+      <OmzetPageInner />
+    </Suspense>
   );
 }
 
