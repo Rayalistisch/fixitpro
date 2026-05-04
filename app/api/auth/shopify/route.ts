@@ -17,6 +17,11 @@ export async function GET(req: Request) {
   const state = randomBytes(16).toString("hex");
   const authUrl = buildAuthUrl(shop, state);
 
+  // Tijdelijk: toon de gegenereerde URL zodat we kunnen debuggen
+  if (url.searchParams.get("debug") === "1") {
+    return NextResponse.json({ authUrl, APP_URL: process.env.APP_URL, API_KEY: process.env.NEXT_PUBLIC_SHOPIFY_API_KEY });
+  }
+
   const response = NextResponse.redirect(authUrl);
   response.cookies.set("shopify_oauth_state", state, {
     httpOnly: true,
