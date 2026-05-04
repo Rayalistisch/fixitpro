@@ -23,9 +23,6 @@ api_version = "2025-01"
   topics = ["app/uninstalled"]
   uri = "/api/webhooks/app-uninstalled"
 
-  [[webhooks.subscriptions]]
-  topics = ["shop/redact", "customers/redact", "customers/data_request"]
-  uri = "/api/webhooks/gdpr"
 
 [build]
 automatically_update_urls_on_dev = true
