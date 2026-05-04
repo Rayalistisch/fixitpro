@@ -348,7 +348,7 @@ function InstellingenContent() {
               {optionCard(
                 "smtp",
                 "Via eigen e-mailadres",
-                "Klanten zien jouw eigen adres als afzender. Vereist een app-wachtwoord.",
+                "Klanten zien jouw eigen adres als afzender.",
                 <>
                   <div style={{ marginBottom: 14 }}>
                     <label style={{ display: "block", fontWeight: 700, marginBottom: 6, color: "#374151", fontSize: 14 }}>
@@ -370,7 +370,7 @@ function InstellingenContent() {
 
                   <div style={{ marginBottom: 20 }}>
                     <label style={{ display: "block", fontWeight: 700, marginBottom: 6, color: "#374151", fontSize: 14 }}>
-                      App-wachtwoord
+                      {provider === "Gmail" ? "App-wachtwoord" : "Wachtwoord"}
                     </label>
                     <input
                       type="password"
@@ -380,9 +380,12 @@ function InstellingenContent() {
                       style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db", fontSize: 15, outline: "none", boxSizing: "border-box" }}
                     />
                     <p style={{ fontSize: 12, color: "#9ca3af", margin: "6px 0 0" }}>
-                      Gebruik een app-wachtwoord, niet je inlogwachtwoord.
-                      {provider === "Gmail" && " Bij Gmail: Instellingen → Beveiliging → App-wachtwoorden."}
-                      {provider === "Outlook / Hotmail" && " Bij Outlook: gebruik je gewone wachtwoord of een app-wachtwoord als 2FA aan staat."}
+                      {provider === "Gmail" &&
+                        "Gebruik een app-wachtwoord, niet je inlogwachtwoord. Aanmaken via Google-account → Beveiliging → App-wachtwoorden."}
+                      {provider === "Outlook / Hotmail" &&
+                        "Gebruik je gewone wachtwoord. Heb je tweestapsverificatie aan? Maak dan een app-wachtwoord aan via je Microsoft-account."}
+                      {!provider &&
+                        "Vul het wachtwoord van je e-mailaccount in. Bij eigen domeinen (bijv. via Hostnet of TransIP) is dit je normale wachtwoord."}
                     </p>
                   </div>
 
