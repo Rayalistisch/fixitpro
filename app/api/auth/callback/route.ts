@@ -72,21 +72,12 @@ export async function GET(req: Request) {
     const freshShop = await getShopFromDomain(shop).catch(() => null);
     const hasBilling = isSubscriptionActive(freshShop?.subscription_status ?? null);
 
-    // Redirect naar Shopify admin — die embed de app in een iframe.
-    // Dit is verplicht voor App Bridge token exchange (voor billing).
-    // host is base64 van bijv. "admin.shopify.com/store/shop-name"
-    let adminRedirect: string;
-    try {
-      const decodedHost = Buffer.from(host, "base64").toString("utf-8");
-      // decodedHost = "admin.shopify.com/store/test-store-luminx"
-      const apiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
-      adminRedirect = `https://${decodedHost}/apps/${apiKey}`;
-    } catch {
-      // Fallback als host niet decodeerbaar is
-      adminRedirect = `${process.env.APP_URL}/?shop=${shop}&host=${host}`;
-    }
+    // Redirect naar Shopify admin (myshopify.com formaat) zodat de app
+    // als embedded iframe geladen wordt — vereist voor App Bridge token exchange.
+    const apiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
+    const adminRedirect = `https://${shop}/admin/apps/${apiKey}`;
 
-    console.log("OAuth geslaagd, redirect naar:", adminRedirect.slice(0, 60));
+    console.log("OAuth geslaagd, redirect naar Shopify admin:", adminRedirect);
     const response = NextResponse.redirect(adminRedirect);
     response.cookies.set("shopify_oauth_state", "", { maxAge: 0, path: "/" });
     return response;

@@ -36,8 +36,14 @@ export async function GET(req: Request) {
       await updateShopAccessToken(shop, accessToken);
       console.log("Token exchange geslaagd voor", shop);
     } catch (e: any) {
-      console.warn("Token exchange mislukt, gebruik opgeslagen token:", e?.message);
+      console.error("Token exchange mislukt:", e?.message);
+      return NextResponse.json(
+        { error: `Token exchange mislukt: ${e?.message}` },
+        { status: 500 }
+      );
     }
+  } else {
+    console.warn("Geen session token — gebruik opgeslagen token (kan non-expiring zijn):", shop);
   }
 
   const returnUrl = `${appUrl}/api/billing/callback?shop=${shop}&host=${encodeURIComponent(host)}`;
