@@ -309,16 +309,22 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   }, [shop]);
 
   const [billingLoading, setBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState("");
 
   const handleSubscribe = useCallback(async () => {
     setBillingLoading(true);
+    setBillingError("");
     try {
       const { redirectToBilling } = await import("@/app/lib/billing-redirect");
       const res = await fetch(`/api/billing/subscribe?shop=${shop}&host=${encodeURIComponent(host)}`);
       const data = await res.json();
       if (data.confirmationUrl) {
         await redirectToBilling(data.confirmationUrl, host);
+      } else {
+        setBillingError(data.error || `API fout (${res.status}): geen confirmationUrl`);
       }
+    } catch (e: any) {
+      setBillingError(e?.message || "Netwerkfout");
     } finally {
       setBillingLoading(false);
     }
@@ -347,6 +353,15 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             Je proefperiode is verlopen of je abonnement is niet actief.
             Activeer je abonnement om verder te gaan.
           </p>
+          {billingError && (
+            <div style={{
+              background: "#fef2f2", border: "1px solid #fecaca",
+              borderRadius: 10, padding: "10px 14px", color: "#b91c1c",
+              marginBottom: 16, fontSize: 13, textAlign: "left",
+            }}>
+              {billingError}
+            </div>
+          )}
           <button
             onClick={handleSubscribe}
             disabled={billingLoading}
