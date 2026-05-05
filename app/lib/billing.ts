@@ -6,7 +6,7 @@ export const PLAN = {
   trialDays: 14,
 };
 
-const API_VERSION = "2025-01";
+const API_VERSION = "2024-10";
 
 async function shopifyGraphQL(
   shop: string,
