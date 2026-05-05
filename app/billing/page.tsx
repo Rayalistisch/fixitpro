@@ -39,9 +39,12 @@ function BillingContent() {
           const { default: createApp } = await import("@shopify/app-bridge");
           const { getSessionToken } = await import("@shopify/app-bridge/utilities");
           const app = createApp({ apiKey, host, forceRedirect: false });
-          sessionToken = await getSessionToken(app);
+          sessionToken = await Promise.race([
+            getSessionToken(app),
+            new Promise<string>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
+          ]);
         }
-      } catch { /* niet in embedded context */ }
+      } catch { /* niet in embedded context of timeout */ }
 
       const params = new URLSearchParams({ shop, host });
       if (sessionToken) params.set("session_token", sessionToken);

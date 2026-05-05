@@ -72,11 +72,22 @@ export async function GET(req: Request) {
     const freshShop = await getShopFromDomain(shop).catch(() => null);
     const hasBilling = isSubscriptionActive(freshShop?.subscription_status ?? null);
 
-    // Altijd naar dashboard sturen — DashboardShell toont paywall als billing niet actief is.
-    // Zo blijft de app in de Shopify admin iframe context (nodig voor token exchange).
-    const response = NextResponse.redirect(
-      `${process.env.APP_URL}/?shop=${shop}&host=${host}`
-    );
+    // Redirect naar Shopify admin — die embed de app in een iframe.
+    // Dit is verplicht voor App Bridge token exchange (voor billing).
+    // host is base64 van bijv. "admin.shopify.com/store/shop-name"
+    let adminRedirect: string;
+    try {
+      const decodedHost = Buffer.from(host, "base64").toString("utf-8");
+      // decodedHost = "admin.shopify.com/store/test-store-luminx"
+      const apiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
+      adminRedirect = `https://${decodedHost}/apps/${apiKey}`;
+    } catch {
+      // Fallback als host niet decodeerbaar is
+      adminRedirect = `${process.env.APP_URL}/?shop=${shop}&host=${host}`;
+    }
+
+    console.log("OAuth geslaagd, redirect naar:", adminRedirect.slice(0, 60));
+    const response = NextResponse.redirect(adminRedirect);
     response.cookies.set("shopify_oauth_state", "", { maxAge: 0, path: "/" });
     return response;
 
