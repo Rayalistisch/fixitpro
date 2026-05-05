@@ -13,7 +13,7 @@ export default function AppBridgeInit() {
     if (!host || !apiKey) return;
 
     import("@shopify/app-bridge").then(({ createApp }) => {
-      createApp({ apiKey, host, forceRedirect: false });
+      createApp({ apiKey, host, forceRedirect: true });
     });
   }, [searchParams]);
 
