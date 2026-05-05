@@ -394,24 +394,27 @@ function InstellingenContent() {
                     </p>
                   </div>
 
-                  {!provider && (
-                    <div style={{ marginBottom: 20 }}>
-                      <label style={{ display: "block", fontWeight: 700, marginBottom: 6, color: "#374151", fontSize: 14 }}>
-                        SMTP-server <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optioneel)</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={smtpHost}
-                        onChange={e => { setSmtpHost(e.target.value); setTestResult(null); }}
-                        placeholder="bijv. mail.hostnet.nl of smtp.transip.nl"
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db", fontSize: 15, outline: "none", boxSizing: "border-box" }}
-                      />
-                      <p style={{ fontSize: 12, color: "#9ca3af", margin: "6px 0 0" }}>
-                        Laat leeg om automatisch te proberen. Vul in als de testmail mislukt.
-                        Je vindt dit in het hostingpaneel van je provider.
-                      </p>
-                    </div>
-                  )}
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: "block", fontWeight: 700, marginBottom: 6, color: "#374151", fontSize: 14 }}>
+                      SMTP-server <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optioneel)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={smtpHost}
+                      onChange={e => { setSmtpHost(e.target.value); setTestResult(null); }}
+                      placeholder={
+                        provider === "Gmail" ? "smtp.gmail.com" :
+                        provider === "Outlook / Hotmail" ? "smtp-mail.outlook.com" :
+                        "bijv. smtp.gmail.com of mail.hostnet.nl"
+                      }
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db", fontSize: 15, outline: "none", boxSizing: "border-box" }}
+                    />
+                    <p style={{ fontSize: 12, color: "#9ca3af", margin: "6px 0 0" }}>
+                      Laat leeg als je een gewoon @gmail.com of @outlook.com adres gebruikt.
+                      Gebruik je een eigen domeinnaam (bijv. info@jouwbedrijf.nl) via Google of Microsoft?
+                      Vul dan hier <strong>smtp.gmail.com</strong> of <strong>smtp-mail.outlook.com</strong> in.
+                    </p>
+                  </div>
 
                   <button
                     onClick={handleTestEmail}
