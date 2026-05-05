@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState, Suspense } from "react";
+import { createContext, useContext, useEffect, useState, Suspense, useCallback } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
@@ -300,7 +300,21 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       .catch(() => { setBillingActive(true); }); // fail open
   }, [shop]);
 
-  const subscribeUrl = `/api/billing/subscribe?shop=${shop}&host=${encodeURIComponent(host)}`;
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  const handleSubscribe = useCallback(async () => {
+    setBillingLoading(true);
+    try {
+      const { redirectToBilling } = await import("@/app/lib/billing-redirect");
+      const res = await fetch(`/api/billing/subscribe?shop=${shop}&host=${encodeURIComponent(host)}`);
+      const data = await res.json();
+      if (data.confirmationUrl) {
+        await redirectToBilling(data.confirmationUrl, host);
+      }
+    } finally {
+      setBillingLoading(false);
+    }
+  }, [shop, host]);
 
   const displayName = companyName || "Fixora Pro";
 
@@ -325,18 +339,18 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             Je proefperiode is verlopen of je abonnement is niet actief.
             Activeer je abonnement om verder te gaan.
           </p>
-          <a
-            href={subscribeUrl}
-            target="_top"
+          <button
+            onClick={handleSubscribe}
+            disabled={billingLoading}
             style={{
-              display: "inline-block", background: "#0c86ad",
-              color: "#fff", borderRadius: 999,
+              background: billingLoading ? "#94a3b8" : "#0c86ad",
+              color: "#fff", border: "none", borderRadius: 999,
               padding: "14px 32px", fontWeight: 800, fontSize: 16,
-              textDecoration: "none",
+              cursor: billingLoading ? "not-allowed" : "pointer",
             }}
           >
-            Abonnement activeren →
-          </a>
+            {billingLoading ? "Bezig…" : "Abonnement activeren →"}
+          </button>
           <p style={{ marginTop: 12, fontSize: 12, color: "#94a3b8" }}>
             €19/maand — facturatie via Shopify
           </p>

@@ -13,12 +13,12 @@ export async function GET(req: Request) {
   const appUrl = process.env.APP_URL!;
 
   if (!shop) {
-    return NextResponse.redirect(`${appUrl}/billing?error=invalid_shop&shop=${rawShop}&host=${host}`);
+    return NextResponse.json({ error: "Ongeldig shop domein" }, { status: 400 });
   }
 
   const shopRow = await getShopFromDomain(shop);
   if (!shopRow) {
-    return NextResponse.redirect(`${appUrl}/billing?error=shop_not_found&shop=${shop}&host=${host}`);
+    return NextResponse.json({ error: "Shop niet gevonden" }, { status: 404 });
   }
 
   const returnUrl = `${appUrl}/api/billing/callback?shop=${shop}&host=${encodeURIComponent(host)}`;
@@ -29,11 +29,12 @@ export async function GET(req: Request) {
       shopRow.access_token,
       returnUrl
     );
-    // Directe redirect naar Shopify billing consent pagina
-    return NextResponse.redirect(confirmationUrl);
+    return NextResponse.json({ confirmationUrl });
   } catch (err: any) {
     console.error("billing/subscribe fout:", err?.message ?? err);
-    const msg = encodeURIComponent(err?.message ?? "Billing aanmaken mislukt");
-    return NextResponse.redirect(`${appUrl}/billing?error=${msg}&shop=${shop}&host=${host}`);
+    return NextResponse.json(
+      { error: err?.message ?? "Billing aanmaken mislukt" },
+      { status: 500 }
+    );
   }
 }
