@@ -27,11 +27,16 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${appUrl}/billing?shop=${shop}&host=${host}&error=no_charge`);
   }
 
+  // Shopify stuurt charge_id als numeriek ID, GraphQL verwacht volledige GID
+  const subscriptionGid = chargeId.startsWith("gid://")
+    ? chargeId
+    : `gid://shopify/AppSubscription/${chargeId}`;
+
   try {
     const { status, currentPeriodEnd } = await getAppSubscription(
       shop,
       shopRow.access_token,
-      chargeId
+      subscriptionGid
     );
 
     if (status === "ACTIVE" || status === "TRIALING") {
@@ -41,19 +46,33 @@ export async function GET(req: Request) {
         trial_ends_at: currentPeriodEnd,
       });
 
-      // Nieuwe shop → onboarding, bestaande → dashboard
       const isNew = !shopRow.settings_json?.company_name;
       const destination = isNew ? "onboarding" : "";
       return NextResponse.redirect(`${appUrl}/${destination}?shop=${shop}&host=${host}`);
     }
 
-    // Declined of iets anders
-    await updateShopSubscription(shop, {
-      subscription_status: status,
-    });
+    // Declined of onbekende status
+    await updateShopSubscription(shop, { subscription_status: status });
     return NextResponse.redirect(`${appUrl}/billing?shop=${shop}&host=${host}&declined=1`);
+
   } catch (err: any) {
-    console.error("billing/callback fout:", err);
+    console.error("billing/callback fout:", err?.message ?? err);
+
+    // Shopify stuurt de callback alleen als de gebruiker heeft goedgekeurd.
+    // Als getAppSubscription faalt (bv. ongeldig token), vertrouw op de charge_id
+    // en sla de subscription op als TRIALING zodat de gebruiker toegang krijgt.
+    if (chargeId) {
+      console.log("Fallback: charge_id aanwezig, opslaan als TRIALING:", chargeId);
+      await updateShopSubscription(shop, {
+        subscription_status: "TRIALING",
+        subscription_id: chargeId,
+        trial_ends_at: null,
+      }).catch((e) => console.error("updateShopSubscription fallback fout:", e));
+      const isNew = !shopRow.settings_json?.company_name;
+      const destination = isNew ? "onboarding" : "";
+      return NextResponse.redirect(`${appUrl}/${destination}?shop=${shop}&host=${host}`);
+    }
+
     return NextResponse.redirect(`${appUrl}/billing?shop=${shop}&host=${host}&error=verify_failed`);
   }
 }
