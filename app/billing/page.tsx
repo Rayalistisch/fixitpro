@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { PLAN } from "@/app/lib/billing";
 
@@ -17,37 +17,13 @@ function BillingContent() {
   const shop = searchParams.get("shop") ?? "";
   const host = searchParams.get("host") ?? "";
   const declined = searchParams.get("declined") === "1";
-  const error = searchParams.get("error") ?? "";
+  const errorParam = searchParams.get("error") ?? "";
 
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState(
+  const errMsg =
     declined ? "Je hebt het abonnement niet goedgekeurd. Probeer opnieuw." :
-    error ? "Er is iets misgegaan. Probeer opnieuw." : ""
-  );
+    errorParam ? `Fout: ${decodeURIComponent(errorParam)}` : "";
 
-  async function handleSubscribe() {
-    if (!shop) { setErr("Shop niet gevonden. Herinstalleer de app."); return; }
-    setLoading(true);
-    setErr("");
-    try {
-      const res = await fetch(`/api/billing/subscribe?shop=${shop}&host=${encodeURIComponent(host)}`);
-      const data = await res.json();
-      if (!res.ok || !data.confirmationUrl) {
-        setErr(data.error || "Billing aanmaken mislukt.");
-        return;
-      }
-      // Breek uit de Shopify iframe voor de billing consent pagina
-      if (window.top) {
-        window.top.location.href = data.confirmationUrl;
-      } else {
-        window.location.href = data.confirmationUrl;
-      }
-    } catch {
-      setErr("Netwerkfout. Probeer opnieuw.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const subscribeUrl = `/api/billing/subscribe?shop=${shop}&host=${encodeURIComponent(host)}`;
 
   return (
     <div style={{
@@ -95,29 +71,29 @@ function BillingContent() {
             ))}
           </ul>
 
-          {err && (
+          {errMsg && (
             <div style={{
               background: "#fef2f2", border: "1px solid #fecaca",
               borderRadius: 10, padding: "10px 14px", color: "#b91c1c",
               marginTop: 20, marginBottom: 4, fontSize: 14,
             }}>
-              {err}
+              {errMsg}
             </div>
           )}
 
-          <button
-            onClick={handleSubscribe}
-            disabled={loading}
+          <a
+            href={subscribeUrl}
+            target="_top"
             style={{
-              width: "100%", background: loading ? "#94a3b8" : "#0c86ad",
+              display: "block", width: "100%", background: "#0c86ad",
               color: "#fff", border: "none", borderRadius: 999,
               padding: "15px 0", fontWeight: 800, fontSize: 16,
-              cursor: loading ? "not-allowed" : "pointer",
-              marginTop: 24, transition: "background .15s",
+              textAlign: "center", textDecoration: "none",
+              marginTop: 24, boxSizing: "border-box",
             }}
           >
-            {loading ? "Bezig…" : `${PLAN.trialDays} dagen gratis starten →`}
-          </button>
+            {PLAN.trialDays} dagen gratis starten →
+          </a>
 
           <p style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", margin: "12px 0 0" }}>
             Geen creditcard vereist voor de proefperiode. Annuleer wanneer je wilt.

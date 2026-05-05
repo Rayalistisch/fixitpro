@@ -10,17 +10,18 @@ export async function GET(req: Request) {
   const rawShop = url.searchParams.get("shop") ?? "";
   const host = url.searchParams.get("host") ?? "";
   const shop = sanitizeShopDomain(rawShop);
+  const appUrl = process.env.APP_URL!;
 
   if (!shop) {
-    return NextResponse.json({ error: "Ongeldig shop domein" }, { status: 400 });
+    return NextResponse.redirect(`${appUrl}/billing?error=invalid_shop&shop=${rawShop}&host=${host}`);
   }
 
   const shopRow = await getShopFromDomain(shop);
   if (!shopRow) {
-    return NextResponse.json({ error: "Shop niet gevonden" }, { status: 404 });
+    return NextResponse.redirect(`${appUrl}/billing?error=shop_not_found&shop=${shop}&host=${host}`);
   }
 
-  const returnUrl = `${process.env.APP_URL}/api/billing/callback?shop=${shop}&host=${encodeURIComponent(host)}`;
+  const returnUrl = `${appUrl}/api/billing/callback?shop=${shop}&host=${encodeURIComponent(host)}`;
 
   try {
     const { confirmationUrl } = await createAppSubscription(
@@ -28,10 +29,11 @@ export async function GET(req: Request) {
       shopRow.access_token,
       returnUrl
     );
-    // Return JSON for client-side top-frame redirect (embedded app)
-    return NextResponse.json({ confirmationUrl });
+    // Directe redirect naar Shopify billing consent pagina
+    return NextResponse.redirect(confirmationUrl);
   } catch (err: any) {
-    console.error("billing/subscribe fout:", err);
-    return NextResponse.json({ error: err?.message || "Billing aanmaken mislukt" }, { status: 500 });
+    console.error("billing/subscribe fout:", err?.message ?? err);
+    const msg = encodeURIComponent(err?.message ?? "Billing aanmaken mislukt");
+    return NextResponse.redirect(`${appUrl}/billing?error=${msg}&shop=${shop}&host=${host}`);
   }
 }
