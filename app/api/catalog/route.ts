@@ -34,11 +34,20 @@ export async function GET(req: Request) {
   try {
     const sb = getAdmin();
 
-    // Alle unieke merken via RPC (geen limit)
+    // Alle unieke merken — directe query met optionele shop_domain filter
     if (brandsOnly) {
-      const { data, error } = await sb.rpc("get_brands", shop ? { p_shop_domain: shop } : {});
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      return NextResponse.json(data ?? []);
+      let query = sb.from("repair_catalog").select("brand");
+      if (shop) query = query.eq("shop_domain", shop) as typeof query;
+      const { data, error } = await query;
+      if (error) {
+        // shop_domain kolom bestaat nog niet → haal alle merken op (single-tenant fallback)
+        const { data: allData, error: allErr } = await sb.from("repair_catalog").select("brand");
+        if (allErr) return NextResponse.json({ error: allErr.message }, { status: 500 });
+        const brands = [...new Set((allData ?? []).map((r: any) => r.brand).filter(Boolean))].sort();
+        return NextResponse.json(brands);
+      }
+      const brands = [...new Set((data ?? []).map((r: any) => r.brand).filter(Boolean))].sort();
+      return NextResponse.json(brands);
     }
 
     // Unieke modellen voor een merk — pagineer zodat we ALLE rijen krijgen
@@ -49,12 +58,27 @@ export async function GET(req: Request) {
       const modelSet = new Set<string>();
       while (true) {
         let q = sb.from("repair_catalog").select("model").eq("brand", brand).range(offset, offset + PAGE - 1);
-        if (shop) q = q.eq("shop_domain", shop);
-        const { data, error } = await q;
-        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-        if (!data || data.length === 0) break;
-        data.forEach((r: { model: string }) => modelSet.add(r.model));
-        if (data.length < PAGE) break;
+        if (shop) {
+          const { data, error } = await (q.eq("shop_domain", shop) as typeof q);
+          if (error) {
+            // shop_domain kolom bestaat niet — query zonder filter
+            const { data: d2, error: e2 } = await q;
+            if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
+            if (!d2 || d2.length === 0) break;
+            d2.forEach((r: { model: string }) => modelSet.add(r.model));
+            if (d2.length < PAGE) break;
+          } else {
+            if (!data || data.length === 0) break;
+            data.forEach((r: { model: string }) => modelSet.add(r.model));
+            if (data.length < PAGE) break;
+          }
+        } else {
+          const { data, error } = await q;
+          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+          if (!data || data.length === 0) break;
+          data.forEach((r: { model: string }) => modelSet.add(r.model));
+          if (data.length < PAGE) break;
+        }
         offset += PAGE;
       }
       return NextResponse.json([...modelSet].sort());
@@ -73,10 +97,13 @@ export async function GET(req: Request) {
 
       if (brand) q = q.eq("brand", brand);
       if (model) q = q.eq("model", model);
-      if (shop) q = q.eq("shop_domain", shop);
       if (search) q = q.or(`brand.ilike.%${search}%,model.ilike.%${search}%,repair_type.ilike.%${search}%`);
 
-      const { data, error } = await q;
+      let { data, error } = await (shop ? (q.eq("shop_domain", shop) as typeof q) : q);
+      if (error && shop) {
+        // shop_domain kolom bestaat niet — opnieuw zonder filter
+        ({ data, error } = await q);
+      }
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       if (!data || data.length === 0) break;
       all.push(...data);
