@@ -44,6 +44,8 @@ export type Shop = {
   subscription_status: string | null;
   subscription_id: string | null;
   trial_ends_at: string | null;
+  refresh_token: string | null;
+  token_expires_at: string | null;
 };
 
 // ── Shop DB helpers ──────────────────────────────────────────────────────────
@@ -62,8 +64,14 @@ export async function getShopFromDomain(domain: string): Promise<Shop | null> {
 export async function upsertShop(
   domain: string,
   accessToken: string,
-  scopes: string
+  scopes: string,
+  refreshToken?: string | null,
+  expiresIn?: number | null
 ): Promise<Shop> {
+  const tokenExpiresAt = expiresIn
+    ? new Date(Date.now() + expiresIn * 1000).toISOString()
+    : null;
+
   const sb = getSupabase();
   const { data, error } = await sb
     .from("shops")
@@ -73,6 +81,8 @@ export async function upsertShop(
         access_token: accessToken,
         scopes,
         uninstalled_at: null,
+        ...(refreshToken !== undefined && { refresh_token: refreshToken }),
+        ...(tokenExpiresAt !== null && { token_expires_at: tokenExpiresAt }),
       },
       { onConflict: "shop_domain" }
     )
@@ -160,7 +170,7 @@ export function buildAuthUrl(shop: string, state: string): string {
 export async function exchangeCodeForToken(
   shop: string,
   code: string
-): Promise<{ access_token: string; scope: string }> {
+): Promise<{ access_token: string; scope: string; refresh_token?: string; expires_in?: number }> {
   const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -170,10 +180,57 @@ export async function exchangeCodeForToken(
       code,
     }),
   });
-  if (!res.ok) {
-    throw new Error(`Token exchange mislukt: ${res.status}`);
-  }
-  return res.json();
+  if (!res.ok) throw new Error(`Token exchange mislukt: ${res.status}`);
+  const data = await res.json();
+  console.log("Token exchange response:", {
+    has_refresh_token: !!data.refresh_token,
+    has_expires_in: !!data.expires_in,
+    token_prefix: data.access_token?.slice(0, 8),
+  });
+  return data;
+}
+
+// Haal een geldig access token op — refresht automatisch als het verlopen is
+export async function getValidAccessToken(shop: string): Promise<string> {
+  const shopRow = await getShopFromDomain(shop);
+  if (!shopRow) throw new Error("Shop niet gevonden");
+
+  // Geen vervaldatum → token is non-expiring of onbekend (gebruik as-is)
+  if (!shopRow.token_expires_at) return shopRow.access_token;
+
+  const expiresAt = new Date(shopRow.token_expires_at).getTime();
+  const bufferMs = 5 * 60 * 1000; // 5 minuten buffer
+  if (Date.now() + bufferMs < expiresAt) return shopRow.access_token;
+
+  // Token verlopen → refresh
+  if (!shopRow.refresh_token) throw new Error("Token verlopen maar geen refresh_token beschikbaar");
+
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY,
+      client_secret: process.env.SHOPIFY_API_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: shopRow.refresh_token,
+    }),
+  });
+  if (!res.ok) throw new Error(`Token refresh mislukt: ${res.status} ${await res.text()}`);
+
+  const data = await res.json();
+  const newExpiresAt = data.expires_in
+    ? new Date(Date.now() + data.expires_in * 1000).toISOString()
+    : null;
+
+  const sb = getSupabase();
+  await sb.from("shops").update({
+    access_token: data.access_token,
+    refresh_token: data.refresh_token ?? shopRow.refresh_token,
+    ...(newExpiresAt && { token_expires_at: newExpiresAt }),
+  }).eq("shop_domain", shop);
+
+  console.log("Token gerefreshed voor", shop);
+  return data.access_token;
 }
 
 // Verifieer Shopify OAuth HMAC (query string van callback)

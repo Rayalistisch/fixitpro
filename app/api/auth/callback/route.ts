@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       secret_set: !!(process.env.SHOPIFY_API_SECRET),
       code_prefix: code.slice(0, 6),
     });
-    const { access_token, scope } = await exchangeCodeForToken(shop, code);
+    const { access_token, scope, refresh_token, expires_in } = await exchangeCodeForToken(shop, code);
 
     // Sla shop op in DB
     let existingShop = null;
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     }
 
     try {
-      await upsertShop(shop, access_token, scope);
+      await upsertShop(shop, access_token, scope, refresh_token, expires_in);
     } catch (e) {
       console.error("upsertShop fout:", e);
       return NextResponse.json({
