@@ -72,21 +72,10 @@ export async function GET(req: Request) {
     const freshShop = await getShopFromDomain(shop).catch(() => null);
     const hasBilling = isSubscriptionActive(freshShop?.subscription_status ?? null);
 
-    // Geen actief abonnement → naar billing pagina
-    if (!hasBilling) {
-      const response = NextResponse.redirect(
-        `${process.env.APP_URL}/billing?shop=${shop}&host=${host}`
-      );
-      response.cookies.set("shopify_oauth_state", "", { maxAge: 0, path: "/" });
-      return response;
-    }
-
-    // Nieuwe shop → onboarding, bestaande shop → dashboard
-    const isNew = !existingShop || !existingShop.settings_json?.company_name;
-    const destination = isNew ? "onboarding" : "";
-
+    // Altijd naar dashboard sturen — DashboardShell toont paywall als billing niet actief is.
+    // Zo blijft de app in de Shopify admin iframe context (nodig voor token exchange).
     const response = NextResponse.redirect(
-      `${process.env.APP_URL}/${destination}?shop=${shop}&host=${host}`
+      `${process.env.APP_URL}/?shop=${shop}&host=${host}`
     );
     response.cookies.set("shopify_oauth_state", "", { maxAge: 0, path: "/" });
     return response;
