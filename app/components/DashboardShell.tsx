@@ -316,21 +316,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     try {
       const { redirectToBilling } = await import("@/app/lib/billing-redirect");
 
-      // Haal session token op via App Bridge voor token exchange (expiring tokens)
+      // Haal session token op via window.shopify.idToken() (modern App Bridge API)
       let sessionToken = "";
       try {
-        const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
-        if (apiKey && host) {
-          const { default: createApp } = await import("@shopify/app-bridge");
-          const { getSessionToken } = await import("@shopify/app-bridge/utilities");
-          const app = createApp({ apiKey, host, forceRedirect: false });
-          // Timeout van 5s — hangt als app niet in Shopify iframe zit
-          sessionToken = await Promise.race([
-            getSessionToken(app),
-            new Promise<string>((_, reject) => setTimeout(() => reject(new Error("timeout")), 5000)),
-          ]);
+        const win = window as any;
+        if (win.shopify?.idToken) {
+          sessionToken = await win.shopify.idToken();
         }
-      } catch { /* niet in embedded context of timeout */ }
+      } catch { /* niet in embedded context */ }
 
       const params = new URLSearchParams({ shop, host });
       if (sessionToken) params.set("session_token", sessionToken);
