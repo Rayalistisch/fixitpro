@@ -316,7 +316,23 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     setBillingError("");
     try {
       const { redirectToBilling } = await import("@/app/lib/billing-redirect");
-      const res = await fetch(`/api/billing/subscribe?shop=${shop}&host=${encodeURIComponent(host)}`);
+
+      // Haal session token op via App Bridge voor token exchange (expiring tokens)
+      let sessionToken = "";
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
+        if (apiKey && host) {
+          const { default: createApp } = await import("@shopify/app-bridge");
+          const { getSessionToken } = await import("@shopify/app-bridge/utilities");
+          const app = createApp({ apiKey, host, forceRedirect: false });
+          sessionToken = await getSessionToken(app);
+        }
+      } catch { /* niet in embedded context */ }
+
+      const params = new URLSearchParams({ shop, host });
+      if (sessionToken) params.set("session_token", sessionToken);
+
+      const res = await fetch(`/api/billing/subscribe?${params}`);
       const data = await res.json();
       if (data.confirmationUrl) {
         await redirectToBilling(data.confirmationUrl, host);

@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getShopFromDomain, sanitizeShopDomain } from "@/app/lib/shopify";
+import {
+  getShopFromDomain,
+  sanitizeShopDomain,
+  exchangeSessionToken,
+  updateShopAccessToken,
+} from "@/app/lib/shopify";
 import { createAppSubscription } from "@/app/lib/billing";
 
 export const runtime = "nodejs";
@@ -9,6 +14,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const rawShop = url.searchParams.get("shop") ?? "";
   const host = url.searchParams.get("host") ?? "";
+  const sessionToken = url.searchParams.get("session_token") ?? "";
   const shop = sanitizeShopDomain(rawShop);
   const appUrl = process.env.APP_URL!;
 
@@ -21,14 +27,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Shop niet gevonden" }, { status: 404 });
   }
 
+  // Gebruik token exchange als er een session token meegegeven is
+  // zodat we altijd een expiring offline token hebben (vereist door Shopify 2025)
+  let accessToken = shopRow.access_token;
+  if (sessionToken) {
+    try {
+      accessToken = await exchangeSessionToken(shop, sessionToken);
+      await updateShopAccessToken(shop, accessToken);
+      console.log("Token exchange geslaagd voor", shop);
+    } catch (e: any) {
+      console.warn("Token exchange mislukt, gebruik opgeslagen token:", e?.message);
+    }
+  }
+
   const returnUrl = `${appUrl}/api/billing/callback?shop=${shop}&host=${encodeURIComponent(host)}`;
 
   try {
-    const { confirmationUrl } = await createAppSubscription(
-      shop,
-      shopRow.access_token,
-      returnUrl
-    );
+    const { confirmationUrl } = await createAppSubscription(shop, accessToken, returnUrl);
     return NextResponse.json({ confirmationUrl });
   } catch (err: any) {
     console.error("billing/subscribe fout:", err?.message ?? err);

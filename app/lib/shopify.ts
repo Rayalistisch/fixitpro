@@ -248,6 +248,39 @@ export function verifyProxySignature(searchParams: URLSearchParams): boolean {
   }
 }
 
+export async function updateShopAccessToken(domain: string, accessToken: string): Promise<void> {
+  const sb = getSupabase();
+  const { error } = await sb
+    .from("shops")
+    .update({ access_token: accessToken })
+    .eq("shop_domain", domain);
+  if (error) throw error;
+}
+
+// Wissel een App Bridge session token in voor een expiring offline access token
+export async function exchangeSessionToken(shop: string, sessionToken: string): Promise<string> {
+  const apiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
+  const apiSecret = process.env.SHOPIFY_API_SECRET ?? "";
+
+  const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: apiKey,
+      client_secret: apiSecret,
+      subject_token: sessionToken,
+      subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
+      grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+      requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Token exchange mislukt: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  if (!data.access_token) throw new Error("Geen access_token in token exchange response");
+  return data.access_token;
+}
+
 export async function updateShopSubscription(
   domain: string,
   data: {
