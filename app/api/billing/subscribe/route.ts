@@ -28,13 +28,24 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Shop niet gevonden" }, { status: 404 });
   }
 
-  // Haal een geldig (en eventueel gerefreshed) access token op
+  // Session token → token exchange voor expiring offline token (vereist door Shopify)
+  // Werkt alleen als de app in de Shopify admin iframe draait (App Bridge)
   let accessToken: string;
-  try {
-    accessToken = await getValidAccessToken(shop);
-  } catch (e: any) {
-    console.error("getValidAccessToken mislukt:", e?.message);
-    return NextResponse.json({ error: `Token fout: ${e?.message}` }, { status: 500 });
+  if (sessionToken) {
+    try {
+      accessToken = await exchangeSessionToken(shop, sessionToken);
+      await updateShopAccessToken(shop, accessToken);
+      console.log("Token exchange via session token geslaagd:", shop);
+    } catch (e: any) {
+      console.error("Session token exchange mislukt:", e?.message);
+      return NextResponse.json({ error: `Token exchange mislukt: ${e?.message}` }, { status: 500 });
+    }
+  } else {
+    try {
+      accessToken = await getValidAccessToken(shop);
+    } catch (e: any) {
+      return NextResponse.json({ error: `Token fout: ${e?.message}` }, { status: 500 });
+    }
   }
 
   const returnUrl = `${appUrl}/api/billing/callback?shop=${shop}&host=${encodeURIComponent(host)}`;
