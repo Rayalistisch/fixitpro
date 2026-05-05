@@ -7,6 +7,7 @@ import {
   getShopFromDomain,
   sanitizeShopDomain,
 } from "@/app/lib/shopify";
+import { isSubscriptionActive } from "@/app/lib/billing";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -63,6 +64,19 @@ export async function GET(req: Request) {
         error: "Database fout bij opslaan shop. Controleer of de shops tabel bestaat in Supabase.",
         detail: String(e),
       }, { status: 500 });
+    }
+
+    // Herlaad shop voor subscription status (upsert kan net zijn uitgevoerd)
+    const freshShop = await getShopFromDomain(shop).catch(() => null);
+    const hasBilling = isSubscriptionActive(freshShop?.subscription_status ?? null);
+
+    // Geen actief abonnement → naar billing pagina
+    if (!hasBilling) {
+      const response = NextResponse.redirect(
+        `${process.env.APP_URL}/billing?shop=${shop}&host=${host}`
+      );
+      response.cookies.set("shopify_oauth_state", "", { maxAge: 0, path: "/" });
+      return response;
     }
 
     // Nieuwe shop → onboarding, bestaande shop → dashboard

@@ -41,6 +41,9 @@ export type Shop = {
   installed_at: string;
   uninstalled_at: string | null;
   settings_json: ShopSettings;
+  subscription_status: string | null;
+  subscription_id: string | null;
+  trial_ends_at: string | null;
 };
 
 // ── Shop DB helpers ──────────────────────────────────────────────────────────
@@ -243,6 +246,19 @@ export function verifyProxySignature(searchParams: URLSearchParams): boolean {
   } catch {
     return false;
   }
+}
+
+export async function updateShopSubscription(
+  domain: string,
+  data: {
+    subscription_status?: string | null;
+    subscription_id?: string | null;
+    trial_ends_at?: string | null;
+  }
+): Promise<void> {
+  const sb = getSupabase();
+  const { error } = await sb.from("shops").update(data).eq("shop_domain", domain);
+  if (error) throw error;
 }
 
 // Saniteer shop domain (alleen *.myshopify.com of custom domains toegestaan)

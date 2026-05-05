@@ -10,8 +10,10 @@ const PUBLIC_PATHS = [
   "/api/auth/pin",
   "/api/proxy",
   "/api/webhooks",
+  "/api/billing",
   "/offer-confirm",
   "/onboarding",
+  "/billing",
   "/login",
 ];
 
