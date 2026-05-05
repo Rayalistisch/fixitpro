@@ -171,18 +171,20 @@ export async function exchangeCodeForToken(
   shop: string,
   code: string
 ): Promise<{ access_token: string; scope: string; refresh_token?: string; expires_in?: number }> {
-  const body = new URLSearchParams({
-    client_id: process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "",
-    client_secret: process.env.SHOPIFY_API_SECRET ?? "",
-    code,
-    expiring: "1",
-  });
   const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
-    body: body.toString(),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY,
+      client_secret: process.env.SHOPIFY_API_SECRET,
+      code,
+      expiring: 1,
+    }),
   });
-  if (!res.ok) throw new Error(`Token exchange mislukt: ${res.status}`);
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Token exchange mislukt: ${res.status} ${errText}`);
+  }
   const data = await res.json();
   console.log("Token exchange response:", {
     has_refresh_token: !!data.refresh_token,
