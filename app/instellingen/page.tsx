@@ -20,6 +20,7 @@ type Settings = {
   mail_mode?: "mailgun" | "smtp";
   smtp_email?: string;
   smtp_password?: string;
+  smtp_host?: string;
 };
 
 function detectProvider(email: string): string {
@@ -61,6 +62,7 @@ function InstellingenContent() {
   const [mailMode, setMailMode] = useState<"mailgun" | "smtp">("mailgun");
   const [smtpEmail, setSmtpEmail] = useState("");
   const [smtpPassword, setSmtpPassword] = useState("");
+  const [smtpHost, setSmtpHost] = useState("");
   const [testingSend, setTestingSend] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [mailSaving, setMailSaving] = useState(false);
@@ -77,6 +79,7 @@ function InstellingenContent() {
         setMailMode(d.mail_mode === "smtp" ? "smtp" : "mailgun");
         setSmtpEmail(d.smtp_email ?? "");
         setSmtpPassword(d.smtp_password ?? "");
+        setSmtpHost(d.smtp_host ?? "");
       }
     } finally {
       setLoading(false);
@@ -122,6 +125,7 @@ function InstellingenContent() {
         mail_mode: mailMode,
         smtp_email: mailMode === "smtp" ? smtpEmail : undefined,
         smtp_password: mailMode === "smtp" ? smtpPassword : undefined,
+        smtp_host: mailMode === "smtp" && smtpHost ? smtpHost : undefined,
       };
       const res = await fetch(`/api/settings?shop=${shop}`, {
         method: "POST",
@@ -150,6 +154,7 @@ function InstellingenContent() {
         mail_mode: mailMode,
         smtp_email: mailMode === "smtp" ? smtpEmail : undefined,
         smtp_password: mailMode === "smtp" ? smtpPassword : undefined,
+        smtp_host: mailMode === "smtp" && smtpHost ? smtpHost : undefined,
       };
       await fetch(`/api/settings?shop=${shop}`, {
         method: "POST",
@@ -368,7 +373,7 @@ function InstellingenContent() {
                     )}
                   </div>
 
-                  <div style={{ marginBottom: 20 }}>
+                  <div style={{ marginBottom: 16 }}>
                     <label style={{ display: "block", fontWeight: 700, marginBottom: 6, color: "#374151", fontSize: 14 }}>
                       {provider === "Gmail" ? "App-wachtwoord" : "Wachtwoord"}
                     </label>
@@ -388,6 +393,25 @@ function InstellingenContent() {
                         "Vul het wachtwoord van je e-mailaccount in. Bij eigen domeinen (bijv. via Hostnet of TransIP) is dit je normale wachtwoord."}
                     </p>
                   </div>
+
+                  {!provider && (
+                    <div style={{ marginBottom: 20 }}>
+                      <label style={{ display: "block", fontWeight: 700, marginBottom: 6, color: "#374151", fontSize: 14 }}>
+                        SMTP-server <span style={{ fontWeight: 400, color: "#9ca3af" }}>(optioneel)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={smtpHost}
+                        onChange={e => { setSmtpHost(e.target.value); setTestResult(null); }}
+                        placeholder="bijv. mail.hostnet.nl of smtp.transip.nl"
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #d1d5db", fontSize: 15, outline: "none", boxSizing: "border-box" }}
+                      />
+                      <p style={{ fontSize: 12, color: "#9ca3af", margin: "6px 0 0" }}>
+                        Laat leeg om automatisch te proberen. Vul in als de testmail mislukt.
+                        Je vindt dit in het hostingpaneel van je provider.
+                      </p>
+                    </div>
+                  )}
 
                   <button
                     onClick={handleTestEmail}
