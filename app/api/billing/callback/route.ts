@@ -32,6 +32,10 @@ export async function GET(req: Request) {
     ? chargeId
     : `gid://shopify/AppSubscription/${chargeId}`;
 
+  // Na billing redirect altijd naar Shopify admin zodat de app embedded laadt
+  const apiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
+  const adminRedirect = `https://${shop}/admin/apps/${apiKey}`;
+
   try {
     const { status, currentPeriodEnd } = await getAppSubscription(
       shop,
@@ -45,10 +49,7 @@ export async function GET(req: Request) {
         subscription_id: chargeId,
         trial_ends_at: currentPeriodEnd,
       });
-
-      const isNew = !shopRow.settings_json?.company_name;
-      const destination = isNew ? "onboarding" : "";
-      return NextResponse.redirect(`${appUrl}/${destination}?shop=${shop}&host=${host}`);
+      return NextResponse.redirect(adminRedirect);
     }
 
     // Declined of onbekende status
@@ -59,8 +60,7 @@ export async function GET(req: Request) {
     console.error("billing/callback fout:", err?.message ?? err);
 
     // Shopify stuurt de callback alleen als de gebruiker heeft goedgekeurd.
-    // Als getAppSubscription faalt (bv. ongeldig token), vertrouw op de charge_id
-    // en sla de subscription op als TRIALING zodat de gebruiker toegang krijgt.
+    // Als getAppSubscription faalt (bv. ongeldig token), vertrouw op de charge_id.
     if (chargeId) {
       console.log("Fallback: charge_id aanwezig, opslaan als TRIALING:", chargeId);
       await updateShopSubscription(shop, {
@@ -68,9 +68,7 @@ export async function GET(req: Request) {
         subscription_id: chargeId,
         trial_ends_at: null,
       }).catch((e) => console.error("updateShopSubscription fallback fout:", e));
-      const isNew = !shopRow.settings_json?.company_name;
-      const destination = isNew ? "onboarding" : "";
-      return NextResponse.redirect(`${appUrl}/${destination}?shop=${shop}&host=${host}`);
+      return NextResponse.redirect(adminRedirect);
     }
 
     return NextResponse.redirect(`${appUrl}/billing?shop=${shop}&host=${host}&error=verify_failed`);
