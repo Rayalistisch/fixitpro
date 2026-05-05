@@ -23,21 +23,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Ontbrekende OAuth parameters", shop, code: !!code, state: !!state }, { status: 400 });
   }
 
-  // Verifieer state nonce
-  const cookieStore = await cookies();
-  const savedState = cookieStore.get("shopify_oauth_state")?.value;
-  if (!savedState || savedState !== state) {
-    // State mismatch — kan gebeuren bij redirect via Shopify CDN (cookie verloren)
-    // Ga door zonder state check als we in productie zitten en HMAC klopt
-    console.warn("State mismatch — doorgaan met HMAC check", { savedState, state });
-  }
-
-  // Verifieer Shopify HMAC
-  if (!verifyOAuthHmac(params)) {
-    return NextResponse.json({ error: "Ongeldige HMAC handtekening" }, { status: 403 });
-  }
+  console.log("OAuth callback ontvangen:", { shop, state: state.slice(0, 6), host: host.slice(0, 8) });
 
   try {
+    // Verifieer state nonce
+    const cookieStore = await cookies();
+    const savedState = cookieStore.get("shopify_oauth_state")?.value;
+    if (!savedState || savedState !== state) {
+      console.warn("State mismatch — doorgaan met HMAC check", { savedState: savedState?.slice(0, 6), state: state.slice(0, 6) });
+    }
+
+    // Verifieer Shopify HMAC
+    const secretSet = !!process.env.SHOPIFY_API_SECRET;
+    console.log("HMAC check:", { secretSet, hmac_present: !!params.get("hmac") });
+    if (!verifyOAuthHmac(params)) {
+      console.error("HMAC verificatie mislukt", { secretSet, shop });
+      return NextResponse.json({ error: "Ongeldige HMAC handtekening" }, { status: 403 });
+    }
     // Wissel code voor access token
     const resolvedApiKey = process.env.SHOPIFY_API_KEY ?? process.env.NEXT_PUBLIC_SHOPIFY_API_KEY ?? "";
     console.log("TOKEN EXCHANGE DEBUG:", {

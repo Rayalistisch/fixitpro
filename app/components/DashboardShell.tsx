@@ -295,8 +295,15 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!shop) return;
     fetch(`/api/billing/status?shop=${shop}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { setBillingActive(d?.active ?? true); })
+      .then(r => r.json())
+      .then(d => {
+        if (d?.shop_not_found) {
+          // Shop niet in DB — OAuth opnieuw starten
+          window.location.href = `/api/auth/shopify?shop=${shop}`;
+          return;
+        }
+        setBillingActive(d?.active ?? true);
+      })
       .catch(() => { setBillingActive(true); }); // fail open
   }, [shop]);
 
