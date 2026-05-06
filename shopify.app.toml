@@ -27,6 +27,10 @@ api_version = "2025-01"
   topics = ["app_subscriptions/update"]
   uri = "/api/webhooks/app-subscriptions-update"
 
+  [[webhooks.subscriptions]]
+  topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "/api/webhooks/gdpr"
+
 
 [build]
 automatically_update_urls_on_dev = true
