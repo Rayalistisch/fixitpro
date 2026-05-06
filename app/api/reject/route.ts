@@ -46,7 +46,9 @@ export async function POST(req: Request) {
 
     const url = new URL(req.url);
     const shopDomain = url.searchParams.get("shop") ?? "";
-    const settings = shopDomain ? await getShopSettings(shopDomain).catch(() => ({} as import("@/app/lib/shopify").ShopSettings)) : ({} as import("@/app/lib/shopify").ShopSettings);
+    if (!shopDomain) return NextResponse.json({ error: "shop param ontbreekt" }, { status: 401 });
+
+    const settings = await getShopSettings(shopDomain).catch(() => ({} as import("@/app/lib/shopify").ShopSettings));
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -54,6 +56,7 @@ export async function POST(req: Request) {
       .from("repair_requests")
       .update({ status: "rejected" })
       .eq("id", id)
+      .eq("shop_domain", shopDomain)
       .select("id, status, customer_name, customer_email, brand, model")
       .single();
 

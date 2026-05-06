@@ -44,6 +44,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing id/patch" }, { status: 400 });
     }
 
+    const shopDomain = new URL(req.url).searchParams.get("shop") ?? "";
+    if (!shopDomain) return NextResponse.json({ error: "shop param ontbreekt" }, { status: 401 });
+
     // ✅ Whitelist: alleen deze velden mogen aangepast worden vanuit admin UI
     const allowed = new Set(["price_text", "preferred_date", "preferred_time", "notes"]);
 
@@ -66,6 +69,7 @@ export async function POST(req: Request) {
       .from("repair_requests")
       .update(cleanPatch)
       .eq("id", id)
+      .eq("shop_domain", shopDomain)
       .select("id, price_text, preferred_date, preferred_time, notes, status")
       .single();
 
