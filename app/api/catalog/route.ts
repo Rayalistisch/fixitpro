@@ -34,19 +34,11 @@ export async function GET(req: Request) {
   try {
     const sb = getAdmin();
 
-    // Alle unieke merken — directe query met optionele shop_domain filter
+    // Alle unieke merken — altijd globale catalog als referentie
     if (brandsOnly) {
-      let query = sb.from("repair_catalog").select("brand");
-      if (shop) query = query.eq("shop_domain", shop) as typeof query;
-      const { data, error } = await query;
-      if (error || (shop && (!data || data.length === 0))) {
-        // Kolom bestaat niet of shop heeft nog geen eigen catalog → fallback op alle data
-        const { data: allData, error: allErr } = await sb.from("repair_catalog").select("brand");
-        if (allErr) return NextResponse.json({ error: allErr.message }, { status: 500 });
-        const brands = [...new Set((allData ?? []).map((r: any) => r.brand).filter(Boolean))].sort();
-        return NextResponse.json(brands);
-      }
-      const brands = [...new Set((data ?? []).map((r: any) => r.brand).filter(Boolean))].sort();
+      const { data: allData, error: allErr } = await sb.from("repair_catalog").select("brand");
+      if (allErr) return NextResponse.json({ error: allErr.message }, { status: 500 });
+      const brands = [...new Set((allData ?? []).map((r: any) => r.brand).filter(Boolean))].sort();
       return NextResponse.json(brands);
     }
 
