@@ -48,6 +48,7 @@ export async function GET(req: Request) {
         subscription_status: status,
         subscription_id: chargeId,
         trial_ends_at: currentPeriodEnd,
+        uninstalled_at: null,
       });
       return NextResponse.redirect(adminRedirect);
     }
@@ -67,6 +68,7 @@ export async function GET(req: Request) {
         subscription_status: "TRIALING",
         subscription_id: chargeId,
         trial_ends_at: null,
+        uninstalled_at: null,
       }).catch((e) => console.error("updateShopSubscription fallback fout:", e));
       return NextResponse.redirect(adminRedirect);
     }

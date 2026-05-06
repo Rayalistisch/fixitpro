@@ -348,6 +348,7 @@ export async function updateShopSubscription(
     subscription_status?: string | null;
     subscription_id?: string | null;
     trial_ends_at?: string | null;
+    uninstalled_at?: string | null;
   }
 ): Promise<void> {
   const sb = getSupabase();

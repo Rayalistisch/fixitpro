@@ -298,8 +298,8 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       .then(r => r.json())
       .then(async d => {
         if (d?.shop_not_found) {
-          // Shop niet in DB — OAuth starten (directe redirect, geen App Bridge nodig)
-          window.location.href = `/api/auth/shopify?shop=${shop}`;
+          // OAuth moet in het top-level window — niet in het Shopify iframe
+          (window.top ?? window).location.href = `/api/auth/shopify?shop=${shop}`;
           return;
         }
         setBillingActive(d?.active ?? true);
