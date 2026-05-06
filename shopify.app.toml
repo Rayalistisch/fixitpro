@@ -28,12 +28,6 @@ api_version = "2025-01"
   uri = "/api/webhooks/app-subscriptions-update"
 
 
-
-[privacy_compliance]
-customer_data_request_url = "https://fixitpro-one.vercel.app/api/webhooks/gdpr"
-customer_deletion_url = "https://fixitpro-one.vercel.app/api/webhooks/gdpr"
-shop_deletion_url = "https://fixitpro-one.vercel.app/api/webhooks/gdpr"
-
 [build]
 automatically_update_urls_on_dev = true
 dev_store_url = "gsm-team-dev.myshopify.com"
