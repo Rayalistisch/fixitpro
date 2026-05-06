@@ -78,7 +78,7 @@ export async function POST(req: Request) {
         preferred_time: data.preferred_time,
         acceptUrl,
         rejectUrl,
-      });
+      }, settings);
 
       const pdf = await buildOfferPdf({
         id:             data.id,
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
         price_text:     data.price_text,
         preferred_date: data.preferred_date,
         preferred_time: data.preferred_time,
-      });
+      }, settings);
 
       const companyName = settings.company_name || "Fixora Pro";
       const subject = `Offerte reparatie – ${companyName}`;

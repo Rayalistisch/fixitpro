@@ -83,7 +83,7 @@ export async function POST(req: Request) {
         price_text:     data.price_text,
         preferred_date: data.preferred_date,
         preferred_time: data.preferred_time,
-      });
+      }, settings);
 
       const pdf = await buildOfferPdf({
         id:             data.id,
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
         price_text:     data.price_text,
         preferred_date: data.preferred_date,
         preferred_time: data.preferred_time,
-      });
+      }, settings);
 
       const notifyEmail = settings.notify_email || process.env.NOTIFY_EMAIL;
 

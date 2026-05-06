@@ -2,6 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import fs from "fs";
 import path from "path";
+import type { ShopSettings } from "@/app/lib/shopify";
 
 // ── Kleuren (identiek aan website PDF) ──────────────────────
 const BLUE:   [number, number, number] = [12,  100, 160];
@@ -24,7 +25,8 @@ export type OfferInput = {
   preferred_time?: string;
 };
 
-export async function buildOfferPdf(input: OfferInput): Promise<Buffer> {
+export async function buildOfferPdf(input: OfferInput, branding: ShopSettings = {}): Promise<Buffer> {
+  const companyName = branding.company_name || "Fixora Pro";
   const doc    = new jsPDF({ unit: "mm", format: "a4" });
   const pageW  = doc.internal.pageSize.getWidth();
   const pageH  = doc.internal.pageSize.getHeight();
@@ -33,21 +35,29 @@ export async function buildOfferPdf(input: OfferInput): Promise<Buffer> {
   let y = 18;
 
   // ── Logo ─────────────────────────────────────────────────────
-  // Plaatst public/logo.png als het bestaat, anders text-fallback.
-  // Voeg logo.png toe aan de public map om het logo in de PDF te tonen.
   let logoPlaced = false;
   try {
-    const candidates = ["logo.png", "logo.jpeg", "logo.jpg"];
-    for (const name of candidates) {
-      const logoPath = path.join(process.cwd(), "public", name);
-      if (fs.existsSync(logoPath)) {
-        const ext  = name.endsWith(".png") ? "PNG" : "JPEG";
-        const mime = name.endsWith(".png") ? "image/png" : "image/jpeg";
-        const logoData = fs.readFileSync(logoPath).toString("base64");
-        const logoH = 13;
-        doc.addImage(`data:${mime};base64,${logoData}`, ext, margin, y - 2, 0, logoH);
+    if (branding.logo_url) {
+      const res = await fetch(branding.logo_url);
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        const isPng = branding.logo_url.toLowerCase().includes(".png");
+        const ext  = isPng ? "PNG" : "JPEG";
+        const mime = isPng ? "image/png" : "image/jpeg";
+        doc.addImage(`data:${mime};base64,${buf.toString("base64")}`, ext, margin, y - 2, 0, 13);
         logoPlaced = true;
-        break;
+      }
+    }
+    if (!logoPlaced) {
+      for (const name of ["logo.png", "logo.jpeg", "logo.jpg"]) {
+        const logoPath = path.join(process.cwd(), "public", name);
+        if (fs.existsSync(logoPath)) {
+          const ext  = name.endsWith(".png") ? "PNG" : "JPEG";
+          const mime = name.endsWith(".png") ? "image/png" : "image/jpeg";
+          doc.addImage(`data:${mime};base64,${fs.readFileSync(logoPath).toString("base64")}`, ext, margin, y - 2, 0, 13);
+          logoPlaced = true;
+          break;
+        }
       }
     }
   } catch { /* valt terug op text */ }
@@ -56,24 +66,26 @@ export async function buildOfferPdf(input: OfferInput): Promise<Buffer> {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(22);
     doc.setTextColor(...BLUE);
-    doc.text("GSMTEAM", margin, y + 8);
+    doc.text(companyName.toUpperCase(), margin, y + 8);
   }
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(...MUTED);
-  doc.text("Full Service Telecom in Enschede", margin, y + 16);
+  if (branding.company_tagline) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...MUTED);
+    doc.text(branding.company_tagline, margin, y + 16);
+  }
 
   // ── Adresblok rechts ─────────────────────────────────────
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(...MUTED);
   const adresLines = [
-    "A  Floresstraat 16A",
-    "    7512 ZR Enschede",
-    "T  053-4363949",
-    "E  info@gsmteam.nl",
-  ];
+    branding.address_line1 ? `A  ${branding.address_line1}` : null,
+    branding.address_line2 ? `    ${branding.address_line2}` : null,
+    branding.phone         ? `T  ${branding.phone}`          : null,
+    branding.email         ? `E  ${branding.email}`          : null,
+  ].filter(Boolean) as string[];
   adresLines.forEach((line, i) => {
     doc.text(line, pageW - margin, y + i * 5.5, { align: "right" });
   });
@@ -230,18 +242,23 @@ export async function buildOfferPdf(input: OfferInput): Promise<Buffer> {
   doc.setLineWidth(0.3);
   doc.line(margin, footerY - 7, pageW - margin, footerY - 7);
 
+  const footerParts = [
+    branding.kvk  ? `kvk  ${branding.kvk}`   : null,
+    branding.btw  ? `btw nr  ${branding.btw}` : null,
+    branding.iban ? `iban  ${branding.iban}`  : null,
+    branding.bic  ? `bic  ${branding.bic}`   : null,
+  ].filter(Boolean).join("     ");
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   doc.setTextColor(...MUTED);
-  doc.text(
-    "kvk  57887365     btw nr  NL852779690B01     iban  NL40 RABO 0153275340     bic  RABONL2U",
-    margin,
-    footerY
-  );
+  if (footerParts) doc.text(footerParts, margin, footerY);
+
+  const websiteLabel = branding.website || companyName;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(...BLUE);
-  doc.text("GSMTEAM.nl", pageW - margin, footerY, { align: "right" });
+  doc.text(websiteLabel, pageW - margin, footerY, { align: "right" });
 
   return Buffer.from(doc.output("arraybuffer"));
 }
@@ -287,12 +304,14 @@ export function buildOfferEmail(data: {
   price_text?: string;
   preferred_date?: string;
   preferred_time?: string;
-}): string {
+}, branding: ShopSettings = {}): string {
   const name = data.customer_name || "klant";
+  const companyName = branding.company_name || "Fixora Pro";
+  const logoSrc = branding.logo_url || data.logoUrl;
 
-  const logoHtml = data.logoUrl
-    ? `<img src="${data.logoUrl}" alt="GSM Team" width="48" height="48" border="0" style="display:block;width:48px;height:48px;border-radius:10px;object-fit:cover">`
-    : `<span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#1e3a5f">GSM Team</span>`;
+  const logoHtml = logoSrc
+    ? `<img src="${logoSrc}" alt="${companyName}" width="48" height="48" border="0" style="display:block;width:48px;height:48px;border-radius:10px;object-fit:cover">`
+    : `<span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#1e3a5f">${companyName}</span>`;
 
   const toestel = [data.brand, data.model, data.color].filter(Boolean).join(" ") || null;
   const voorkeur = fmtEmailDate(data.preferred_date, data.preferred_time) || null;
@@ -370,7 +389,7 @@ export function buildOfferEmail(data: {
                       <td style="padding-bottom:40px;padding-left:60px;padding-right:60px" align="center" valign="middle">
                         <p style="color:#475569;font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:400;line-height:22px;text-align:center;padding:0;margin:0">
                           Met vriendelijke groet,<br>
-                          <strong style="color:#0f172a">GSM Team</strong>
+                          <strong style="color:#0f172a">${companyName}</strong>
                         </p>
                       </td>
                     </tr>
@@ -396,7 +415,7 @@ export function buildOfferEmail(data: {
                   <tbody>
                     <tr>
                       <td style="padding:10px" align="center" valign="top">
-                        <p style="color:#bbb;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:400;line-height:20px;text-align:center;padding:0;margin:0">© GSM Team</p>
+                        <p style="color:#bbb;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:400;line-height:20px;text-align:center;padding:0;margin:0">© ${companyName}</p>
                       </td>
                     </tr>
                     <tr>
@@ -422,10 +441,13 @@ export function buildOfferEmail(data: {
 export function buildOfferQuoteEmail(data: OfferInput & {
   acceptUrl: string;
   rejectUrl: string;
-}): string {
+}, branding: ShopSettings = {}): string {
   const name = data.customer_name || "klant";
+  const companyName = branding.company_name || "Fixora Pro";
 
-  const logoHtml = `<span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#1e3a5f">GSM Team</span>`;
+  const logoHtml = branding.logo_url
+    ? `<img src="${branding.logo_url}" alt="${companyName}" width="48" height="48" border="0" style="display:block;width:48px;height:48px;border-radius:10px;object-fit:cover">`
+    : `<span style="font-family:Helvetica,Arial,sans-serif;font-size:22px;font-weight:700;color:#1e3a5f">${companyName}</span>`;
 
   const toestel = [data.brand, data.model, data.color].filter(Boolean).join(" ") || null;
   const voorkeur = fmtEmailDate(data.preferred_date, data.preferred_time) || null;
@@ -512,7 +534,7 @@ export function buildOfferQuoteEmail(data: OfferInput & {
                       <td style="padding-bottom:40px;padding-left:60px;padding-right:60px" align="center" valign="middle">
                         <p style="color:#475569;font-family:Helvetica,Arial,sans-serif;font-size:14px;font-weight:400;line-height:22px;text-align:center;padding:0;margin:0">
                           Met vriendelijke groet,<br>
-                          <strong style="color:#0f172a">GSM Team</strong>
+                          <strong style="color:#0f172a">${companyName}</strong>
                         </p>
                       </td>
                     </tr>
@@ -536,7 +558,7 @@ export function buildOfferQuoteEmail(data: OfferInput & {
                   <tbody>
                     <tr>
                       <td style="padding:10px" align="center" valign="top">
-                        <p style="color:#bbb;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:400;line-height:20px;text-align:center;padding:0;margin:0">© GSM Team</p>
+                        <p style="color:#bbb;font-family:Helvetica,Arial,sans-serif;font-size:12px;font-weight:400;line-height:20px;text-align:center;padding:0;margin:0">© ${companyName}</p>
                       </td>
                     </tr>
                     <tr>
