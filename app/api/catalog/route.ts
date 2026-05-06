@@ -121,69 +121,74 @@ function defaultShowQuality(quality: string): boolean {
   return q === "officieel" || q === "origineel";
 }
 
+// Copy-on-first-write: kopieer alle globale rijen naar de shop bij eerste schrijfoperatie
+async function ensureShopOwnsData(sb: ReturnType<typeof getAdmin>, shopDomain: string): Promise<void> {
+  const { data: existing } = await sb
+    .from("repair_catalog").select("id").eq("shop_domain", shopDomain).limit(1);
+  if (existing && existing.length > 0) return;
+
+  const { data: template } = await sb
+    .from("repair_catalog")
+    .select("brand, model, color, repair_type, quality, price, show_quality")
+    .neq("shop_domain", shopDomain)
+    .limit(2000);
+  if (!template || template.length === 0) return;
+
+  const rows = template.map((r: any) => ({ ...r, shop_domain: shopDomain }));
+  const BATCH = 200;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    await sb.from("repair_catalog").insert(rows.slice(i, i + BATCH));
+  }
+}
+
 // POST /api/catalog — nieuwe reparatie toevoegen (enkelvoudig of bulk)
 export async function POST(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const shop = safe(searchParams.get("shop"));
     const body = await req.json().catch(() => ({}));
+    const sb = getAdmin();
 
-    // BULK MODE: body is een array van rijen
+    if (shop) await ensureShopOwnsData(sb, shop);
+
+    // BULK MODE
     if (Array.isArray(body)) {
-      if (body.length === 0) {
-        return NextResponse.json({ error: "Lege array meegegeven" }, { status: 400 });
-      }
-      if (body.length > 500) {
-        return NextResponse.json({ error: "Maximaal 500 rijen per bulk-insert" }, { status: 400 });
-      }
+      if (body.length === 0) return NextResponse.json({ error: "Lege array meegegeven" }, { status: 400 });
+      if (body.length > 500) return NextResponse.json({ error: "Maximaal 500 rijen per bulk-insert" }, { status: 400 });
 
       const rows = body.map((item: any) => {
         const quality = safe(item.quality) || "Officieel";
         return {
-          brand: cap(item.brand),
-          model: safe(item.model),
-          color: cap(item.color),
-          repair_type: cap(item.repair_type),
-          quality,
+          brand: cap(item.brand), model: safe(item.model), color: cap(item.color),
+          repair_type: cap(item.repair_type), quality,
           price: item.price !== undefined && item.price !== null && item.price !== ""
-            ? Number(String(item.price).replace(",", ".")) || null
-            : null,
+            ? Number(String(item.price).replace(",", ".")) || null : null,
           show_quality: item.show_quality !== undefined ? !!item.show_quality : defaultShowQuality(quality),
+          ...(shop ? { shop_domain: shop } : {}),
         };
       });
-
       for (const row of rows) {
-        if (!row.brand || !row.model || !row.color || !row.repair_type) {
-          return NextResponse.json(
-            { error: "Elk item vereist brand, model, color en repair_type" },
-            { status: 400 }
-          );
-        }
+        if (!row.brand || !row.model || !row.color || !row.repair_type)
+          return NextResponse.json({ error: "Elk item vereist brand, model, color en repair_type" }, { status: 400 });
       }
-
-      const sb = getAdmin();
       const { error } = await sb.from("repair_catalog").insert(rows);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ ok: true, count: rows.length });
     }
 
-    // SINGLE MODE: bestaande logica
+    // SINGLE MODE
     const quality = safe(body.quality) || "Officieel";
     const row = {
-      brand: cap(body.brand),
-      model: safe(body.model),
-      color: cap(body.color),
-      repair_type: cap(body.repair_type),
-      quality,
+      brand: cap(body.brand), model: safe(body.model), color: cap(body.color),
+      repair_type: cap(body.repair_type), quality,
       price: body.price !== "" && body.price !== null && body.price !== undefined
-        ? Number(String(body.price).replace(",", ".")) || null
-        : null,
+        ? Number(String(body.price).replace(",", ".")) || null : null,
       show_quality: body.show_quality !== undefined ? !!body.show_quality : defaultShowQuality(quality),
+      ...(shop ? { shop_domain: shop } : {}),
     };
-
-    if (!row.brand || !row.model || !row.color || !row.repair_type) {
+    if (!row.brand || !row.model || !row.color || !row.repair_type)
       return NextResponse.json({ error: "Merk, model, kleur en reparatietype zijn verplicht" }, { status: 400 });
-    }
 
-    const sb = getAdmin();
     const { data, error } = await sb.from("repair_catalog").insert(row).select("id").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true, id: data.id });
@@ -195,16 +200,14 @@ export async function POST(req: Request) {
 // PATCH /api/catalog — prijs of kwaliteit aanpassen
 export async function PATCH(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const shop = safe(searchParams.get("shop"));
     const body = await req.json().catch(() => ({}));
     const id = safe(body.id);
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const patch: Record<string, any> = {};
-    if (body.price !== undefined) {
-      patch.price = body.price !== "" && body.price !== null
-        ? Number(String(body.price).replace(",", ".")) || null
-        : null;
-    }
+    if (body.price !== undefined) patch.price = body.price !== "" && body.price !== null ? Number(String(body.price).replace(",", ".")) || null : null;
     if (body.quality !== undefined) patch.quality = safe(body.quality) || "Officieel";
     if (body.repair_type !== undefined) patch.repair_type = cap(body.repair_type);
     if (body.color !== undefined) patch.color = cap(body.color);
@@ -213,6 +216,28 @@ export async function PATCH(req: Request) {
     if (body.show_quality !== undefined) patch.show_quality = !!body.show_quality;
 
     const sb = getAdmin();
+
+    if (shop) {
+      // Copy-on-first-write: zorg dat de shop eigen data heeft
+      await ensureShopOwnsData(sb, shop);
+      // Controleer of de rij al van deze shop is
+      const { data: row } = await sb.from("repair_catalog").select("shop_domain").eq("id", id).maybeSingle();
+      if (row && row.shop_domain !== shop) {
+        // Rij hoort bij een andere shop — zoek de equivalente rij van déze shop
+        const { data: ownRow } = await sb.from("repair_catalog")
+          .select("id").eq("shop_domain", shop)
+          .eq("brand", row.brand ?? "").limit(1).maybeSingle();
+        const targetId = ownRow?.id ?? id;
+        const { error } = await sb.from("repair_catalog").update(patch).eq("id", targetId).eq("shop_domain", shop);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ ok: true });
+      }
+      // Rij is al van deze shop — update alleen als shop_domain klopt
+      const { error } = await sb.from("repair_catalog").update(patch).eq("id", id).eq("shop_domain", shop);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+
     const { error } = await sb.from("repair_catalog").update(patch).eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
@@ -224,12 +249,16 @@ export async function PATCH(req: Request) {
 // DELETE /api/catalog — reparatie verwijderen (enkelvoudig of bulk op quality)
 export async function DELETE(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const shop = safe(searchParams.get("shop"));
     const body = await req.json().catch(() => ({}));
+    const sb = getAdmin();
 
-    // Bulk-delete op quality (alleen "Pulled" toegestaan als veiligheidsmaatregel)
+    // Bulk-delete op quality (alleen eigen rijen)
     if (!body.id && body.quality === "Pulled") {
-      const sb = getAdmin();
-      const { error } = await sb.from("repair_catalog").delete().eq("quality", "Pulled");
+      let q = sb.from("repair_catalog").delete().eq("quality", "Pulled");
+      if (shop) q = (q as any).eq("shop_domain", shop);
+      const { error } = await q;
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       return NextResponse.json({ ok: true, deleted: "Pulled" });
     }
@@ -237,7 +266,14 @@ export async function DELETE(req: Request) {
     const id = safe(body.id);
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const sb = getAdmin();
+    if (shop) {
+      await ensureShopOwnsData(sb, shop);
+      // Verwijder alleen eigen rijen
+      const { error } = await sb.from("repair_catalog").delete().eq("id", id).eq("shop_domain", shop);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true });
+    }
+
     const { error } = await sb.from("repair_catalog").delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
