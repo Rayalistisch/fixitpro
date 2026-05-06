@@ -1,17 +1,285 @@
-{{ 'repair-widget.css' | asset_url | stylesheet_tag }}
+{% comment %}FixIt Pro — Reparatie Widget (Theme App Extension){% endcomment %}
+{% assign sid = section.id %}
 
-{% if section.settings.title != blank %}
-  <h2 style="text-align:center;font-size:clamp(1.6rem,2.4vw,2.8rem);font-weight:900;color:#003b4a;margin:0 0 24px;letter-spacing:-.02em">
-    {{ section.settings.title }}
-  </h2>
-{% endif %}
+<section id="gsm-repair-tool-{{ sid }}" class="gsmrt" data-sid="{{ sid }}" data-proxy="/apps/reparatie">
+  <style>
+    #gsm-repair-tool-{{ sid }}{display:block;width:100%;box-sizing:border-box;padding:40px 0 60px;background:#f5f7f9;--primary:#0c86ad;--text:#0f172a;--muted:#64748b;--border:rgba(15,23,42,.10);--card:#fff;--shadow:0 18px 40px rgba(15,23,42,.08);--shadow2:0 10px 22px rgba(0,0,0,.06);}
+    .shopify-section:has(#gsm-repair-tool-{{ sid }}){max-width:100%!important;padding-left:0!important;padding-right:0!important;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__wrap{max-width:1180px;margin:0 auto;padding:0 16px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__title{text-align:center;margin:0 0 18px;font-size:clamp(1.9rem,2.4vw,3.3rem);font-weight:900;color:#003b4a;letter-spacing:-.02em;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__card{background:var(--card);border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:22px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__steps{display:flex;align-items:center;gap:10px;justify-content:center;background:#fff;border:1px solid var(--border);border-radius:999px;padding:8px 10px;box-shadow:var(--shadow2);margin:0 auto 16px;width:fit-content;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__step{appearance:none;border:0;background:transparent;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:999px;cursor:pointer;font-weight:900;color:#2f3a44;font-size:.95rem;transition:transform .12s ease,background .12s ease;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__step:active{transform:scale(.98);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__step:disabled{opacity:.45;cursor:not-allowed;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__step.is-active{background:rgba(12,134,173,.10);color:#003b4a;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__num{width:28px;height:28px;border-radius:999px;display:grid;place-items:center;background:var(--primary);color:#fff;font-size:.9rem;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__line{width:26px;height:2px;background:rgba(0,0,0,.12);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__panel{display:none;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__panel.is-active{display:block;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__grid{display:grid;gap:14px;grid-template-columns:1fr;}
+    @media(min-width:990px){#gsm-repair-tool-{{ sid }} .gsmrt__grid{grid-template-columns:1fr 360px;align-items:start;}#gsm-repair-tool-{{ sid }} .gsmrt__side{position:sticky;top:110px;}}
+    #gsm-repair-tool-{{ sid }} .gsmrt__group{margin-bottom:14px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__label{display:flex;align-items:center;gap:10px;font-weight:900;color:#2f3a44;margin:0 0 8px;padding:5px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__input,#gsm-repair-tool-{{ sid }} .gsmrt__select,#gsm-repair-tool-{{ sid }} .gsmrt__textarea{width:100%;border-radius:12px;border:1px solid #0b86ac;padding:11px 12px;font-size:1.5rem;background:#fff;outline:none;transition:box-shadow .12s ease,border-color .12s ease;min-height:60px;box-sizing:border-box;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__input:focus,#gsm-repair-tool-{{ sid }} .gsmrt__select:focus,#gsm-repair-tool-{{ sid }} .gsmrt__textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(12,134,173,.16);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__input:disabled,#gsm-repair-tool-{{ sid }} .gsmrt__select:disabled{background:#f0f3f6;color:#9aa5b1;cursor:not-allowed;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__typeahead{position:relative;margin-bottom:15px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__results{position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.10);overflow:hidden;display:none;z-index:50;max-height:260px;overflow-y:auto;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__pricebox{margin-top:10px;padding:12px 14px;border-radius:12px;background:#f1f8fb;border:1px solid #c1dfec;display:flex;justify-content:space-between;gap:12px;align-items:center;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__priceval{font-weight:1000;color:var(--primary);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__priceval.is-unknown{opacity:.75;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__actions{margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btn{border-radius:999px;padding:12px 18px;font-weight:1000;border:0;cursor:pointer;transition:transform .12s ease,filter .12s ease,opacity .12s ease;font-size:1rem;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btn:active{transform:scale(.98);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btn--primary{background:var(--primary);color:#fff;flex:1;min-width:220px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btn--ghost{background:#eef2f6;color:#2f3a44;border:1px solid var(--border);min-width:180px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btn:disabled{opacity:.5;cursor:not-allowed;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__summary{border:1px solid #c1dfec;border-radius:14px;padding:12px 14px;color:#003b4a;font-size:1.2rem;line-height:1.45;margin-top:14px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__cartlist{margin:10px 0 0;padding:0;list-style:none;display:grid;gap:10px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__cartitem{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.07);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__cartitem:last-child{border-bottom:0;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__cartprice{font-weight:1000;color:var(--primary);white-space:nowrap;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__remove{appearance:none;border:1px solid var(--border);background:#f8fafc;border-radius:999px;width:28px;height:28px;display:grid;place-items:center;font-size:.85rem;color:#94a3b8;flex-shrink:0;cursor:pointer;transition:background .12s,color .12s;padding:0;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__remove:hover{background:#fee2e2;color:#ef4444;border-color:#fca5a5;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__totalrow{margin-top:10px;display:flex;justify-content:space-between;font-weight:1000;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__alert{border-radius:12px;padding:12px 14px;font-size:.95rem;margin-top:12px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__alert--success{background:#ecfdf3;border:1px solid #a6f4c5;color:#166534;display:none;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__alert--error{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;white-space:pre-wrap;display:none;}
+    @media(max-width:989px){#gsm-repair-tool-{{ sid }} input,#gsm-repair-tool-{{ sid }} select,#gsm-repair-tool-{{ sid }} textarea{font-size:16px!important;-webkit-text-size-adjust:100%;}}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorgrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;align-items:start;}
+    @media(max-width:520px){#gsm-repair-tool-{{ sid }} .gsmrt__colorgrid{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorwrap{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorchip{width:100%;aspect-ratio:1/1;border-radius:14px;border:2px solid rgba(0,0,0,.14);background:#e2e8f0;cursor:pointer;box-shadow:var(--shadow2);transition:transform .12s ease,box-shadow .12s ease,outline .12s ease,border-color .12s ease;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorchip:hover{transform:translateY(-1px);box-shadow:0 18px 40px rgba(0,0,0,.10);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorchip:active{transform:scale(.98);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorchip.is-active{outline:3px solid rgba(12,134,173,.35);border-color:rgba(12,134,173,.75);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorchip.is-disabled{opacity:.35;cursor:not-allowed;box-shadow:none;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__colorlabel{font-size:1.12rem;font-weight:900;color:#475569;text-align:center;line-height:1.15;max-width:100%;word-break:break-word;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__issuegrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+    @media(min-width:990px){#gsm-repair-tool-{{ sid }} .gsmrt__issuegrid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repaircard{appearance:none;border:1px solid rgba(0,0,0,.10);background:#fff;border-radius:16px;padding:14px;text-align:left;cursor:pointer;box-shadow:var(--shadow2);transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease,outline .12s ease;display:flex;flex-direction:column;gap:8px;min-height:96px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repaircard:hover{transform:translateY(-1px);box-shadow:0 18px 40px rgba(0,0,0,.10);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repaircard:active{transform:scale(.98);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repaircard.is-active{outline:3px solid rgba(12,134,173,.18);border-color:rgba(12,134,173,.65);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repaircard.is-done{border-color:rgba(22,163,74,.35);background:rgba(22,163,74,.04);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repairhead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repairtitle{font-weight:1000;color:#0f172a;font-size:1.2rem;flex:1;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repairmeta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end;flex-shrink:0;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#f1f5f9;border:1px solid rgba(0,0,0,.08);font-weight:1000;font-size:.78rem;color:#475569;white-space:nowrap;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__pill--hot{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.25);color:#92400e;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repairprice{margin-top:auto;font-weight:1000;color:var(--primary);font-size:1.3rem;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repairdesc{font-size:.86rem;color:#64748b;line-height:1.25;min-height:2.2em;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__repairdone{font-size:.78rem;font-weight:700;color:#16a34a;margin-top:2px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qualitygrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+    @media(min-width:990px){#gsm-repair-tool-{{ sid }} .gsmrt__qualitygrid{grid-template-columns:repeat(4,minmax(0,1fr));}}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qualitychip{appearance:none;border:1px solid rgba(0,0,0,.10);background:#fff;border-radius:16px;padding:12px;text-align:left;cursor:pointer;box-shadow:var(--shadow2);transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease,outline .12s ease;display:flex;flex-direction:column;gap:6px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qualitychip:hover{transform:translateY(-1px);box-shadow:0 18px 40px rgba(0,0,0,.10);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qualitychip:active{transform:scale(.98);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qualitychip.is-active{outline:3px solid rgba(12,134,173,.18);border-color:rgba(12,134,173,.65);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qname{font-weight:1000;color:#0f172a;font-size:.92rem;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qhint{font-size:.80rem;color:#64748b;line-height:1.2;min-height:2.2em;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__qprice{font-weight:1000;color:var(--primary);font-size:.92rem;margin-top:auto;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__loading{display:none;margin-top:10px;padding:10px 12px;border-radius:12px;background:#eef2f6;border:1px solid rgba(0,0,0,.08);color:#475569;font-weight:900;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__loading.is-on{display:block;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__device-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border:1px solid rgba(12,134,173,.20);border-radius:12px;margin-bottom:14px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__device-bar__label{display:flex;align-items:center;gap:8px;font-weight:700;color:#003b4a;font-size:1.2rem;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__labelrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btwtoggle{display:flex;align-items:center;gap:7px;font-size:1.22rem;font-weight:700;color:#64748b;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btwswitch{position:relative;width:40px;height:22px;flex-shrink:0;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btwswitch input{opacity:0;width:0;height:0;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btwslider{position:absolute;inset:0;cursor:pointer;background:#cbd5e1;border-radius:999px;transition:background .2s;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btwslider::before{content:"";position:absolute;width:16px;height:16px;border-radius:50%;left:3px;top:3px;background:#fff;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btwswitch input:checked+.gsmrt__btwslider{background:var(--primary);}
+    #gsm-repair-tool-{{ sid }} .gsmrt__btwswitch input:checked+.gsmrt__btwslider::before{transform:translateX(18px);}
+    @keyframes gsmrt-group-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+    #gsm-repair-tool-{{ sid }} .gsmrt__group--reveal{animation:gsmrt-group-in .22s ease both;}
+    @keyframes gsmrt-spin{to{transform:rotate(360deg);}}
+    #gsm-repair-tool-{{ sid }} .gsmrt__submit-icon{display:none;width:18px;height:18px;flex-shrink:0;}
+    #gsm-repair-tool-{{ sid }} .gsmrt__submit-icon.is-spinning{display:inline-block;animation:gsmrt-spin .8s linear infinite;}
+    .gsmrt__mobilebar{display:none;position:fixed;bottom:0;left:0;right:0;z-index:90;background:#fff;border-top:1px solid rgba(0,0,0,.10);box-shadow:0 -8px 30px rgba(0,0,0,.10);padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .25s ease;}
+    .gsmrt__mobilebar.is-visible{transform:translateY(0);}
+    .gsmrt__mobilebar__inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .gsmrt__mobilebar__info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+    .gsmrt__mobilebar__count{font-size:.85rem;font-weight:900;color:#64748b;}
+    .gsmrt__mobilebar__total{font-size:1.15rem;font-weight:1000;color:#003b4a;}
+    .gsmrt__mobilebar__btn{flex-shrink:0;border:0;border-radius:999px;padding:12px 24px;background:#0c86ad;color:#fff;font-weight:1000;font-size:1rem;cursor:pointer;white-space:nowrap;transition:transform .12s ease,filter .12s ease;}
+    .gsmrt__mobilebar__btn:active{transform:scale(.97);}
+    .gsmrt__mobilebar__btn:disabled{opacity:.5;cursor:not-allowed;}
+    @media(max-width:989px){.gsmrt__mobilebar{display:block;}#gsm-repair-tool-{{ sid }}{padding-bottom:100px;}}
+    @media(min-width:990px){.gsmrt__mobilebar{display:none!important;}}
+    .gsmrt__toast-container{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:95;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
+    @media(min-width:990px){.gsmrt__toast-container{bottom:auto;top:140px;right:24px;left:auto;transform:none;align-items:flex-end;}}
+    .gsmrt__toast{pointer-events:auto;background:#003b4a;color:#fff;padding:12px 20px;border-radius:14px;font-weight:900;font-size:.92rem;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;align-items:center;gap:10px;max-width:340px;animation:gsmrt-toast-in .3s ease forwards;}
+    .gsmrt__toast.is-out{animation:gsmrt-toast-out .25s ease forwards;}
+    .gsmrt__toast__icon{flex-shrink:0;width:22px;height:22px;border-radius:999px;background:rgba(34,197,94,.2);color:#22c55e;display:grid;place-items:center;font-size:14px;}
+    @keyframes gsmrt-toast-in{from{opacity:0;transform:translateY(12px) scale(.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+    @keyframes gsmrt-toast-out{from{opacity:1;transform:translateY(0) scale(1);}to{opacity:0;transform:translateY(-8px) scale(.95);}}
+  </style>
 
-<div
-  id="repair-widget-root"
-  data-proxy-base="/apps/reparatie"
-></div>
+  <div class="gsmrt__wrap">
+    <h2 class="gsmrt__title">{{ section.settings.title | default: "Direct een indicatie voor je reparatie" }}</h2>
 
-{{ 'repair-widget.js' | asset_url | script_tag }}
+    <div class="gsmrt__steps" aria-label="Stappen">
+      <button type="button" class="gsmrt__step is-active" data-gsmrt-stepbtn="1">
+        <span class="gsmrt__num">1</span><span>Toestel</span>
+      </button>
+      <div class="gsmrt__line" aria-hidden="true"></div>
+      <button type="button" class="gsmrt__step" data-gsmrt-stepbtn="2" disabled>
+        <span class="gsmrt__num">2</span><span>Aanvraag</span>
+      </button>
+    </div>
+
+    <!-- STEP 1 -->
+    <div class="gsmrt__panel is-active" data-gsmrt-panel="1">
+      <div class="gsmrt__card">
+        <div class="gsmrt__grid">
+          <div>
+            <div id="gsmrt-device-form-{{ sid }}">
+              <select class="gsmrt__select" id="repair-brand-{{ sid }}" style="display:none!important"><option value="">Laden…</option></select>
+              <input class="gsmrt__input" id="repair-brand-custom-{{ sid }}" type="text" placeholder="Vul je merk in…" style="display:none!important;" autocomplete="off">
+              <div id="gsmrt-loading-{{ sid }}" class="gsmrt__loading">Reparaties laden…</div>
+
+              <div class="gsmrt__group">
+                <div class="gsmrt__label">Zoek je toestel</div>
+                <div class="gsmrt__typeahead">
+                  <input class="gsmrt__input" id="repair-model-search-{{ sid }}" type="text" placeholder="Bijv. Galaxy S20, iPhone 14, Pixel 9…" autocomplete="off">
+                  <div class="gsmrt__results" id="repair-model-results-{{ sid }}"></div>
+                </div>
+                <select class="gsmrt__select" id="repair-model-{{ sid }}" disabled style="display:none"><option value="">Kies eerst een merk…</option></select>
+              </div>
+            </div>
+
+            <div id="gsmrt-device-bar-{{ sid }}" class="gsmrt__device-bar" style="display:none">
+              <div class="gsmrt__device-bar__label"><span id="gsmrt-device-name-{{ sid }}"></span></div>
+              <button type="button" id="gsmrt-change-device-{{ sid }}" style="appearance:none;border:1px solid rgba(12,134,173,.3);background:transparent;border-radius:8px;padding:5px 10px;font-size:1.35rem;font-weight:700;color:var(--primary);cursor:pointer;white-space:nowrap;">Wijzig toestel</button>
+            </div>
+
+            <div id="gsmrt-custom-notice-{{ sid }}" class="gsmrt__group" style="display:none">
+              <div style="background:#fff8e1;border:1px solid #ffc107;border-radius:10px;padding:14px 16px;color:#7a5800;font-weight:700;line-height:1.5;">
+                Dit apparaat staat niet in ons systeem.<br>
+                <span style="font-weight:400;">Alle reparaties worden op aanvraag berekend. Vul je gegevens in en wij nemen contact op.</span>
+              </div>
+            </div>
+
+            <div class="gsmrt__group" id="gsmrt-color-group-{{ sid }}" style="display:none">
+              <div class="gsmrt__label">Kleur</div>
+              <div id="repair-color-grid-{{ sid }}" class="gsmrt__colorgrid"></div>
+              <div id="repair-color-hint-{{ sid }}" style="font-size:.92rem;color:#64748b;margin-top:10px;"></div>
+              <select class="gsmrt__select" id="repair-color-{{ sid }}" style="display:none!important;"><option value="">Kies eerst een model…</option></select>
+            </div>
+
+            <div class="gsmrt__group" id="gsmrt-issue-group-{{ sid }}" style="display:none">
+              <div class="gsmrt__labelrow">
+                <div class="gsmrt__label" style="margin-bottom:0">Type reparatie</div>
+                <div class="gsmrt__btwtoggle">
+                  <span id="gsmrt-btw-label-{{ sid }}">Incl. BTW</span>
+                  <label class="gsmrt__btwswitch">
+                    <input type="checkbox" id="gsmrt-btw-toggle-{{ sid }}" checked>
+                    <span class="gsmrt__btwslider"></span>
+                  </label>
+                </div>
+              </div>
+              <div id="repair-issue-grid-{{ sid }}" class="gsmrt__issuegrid"></div>
+              <div id="repair-issue-hint-{{ sid }}" style="font-size:.92rem;color:#64748b;margin-top:10px;"></div>
+              <select class="gsmrt__select" id="repair-issue-{{ sid }}" style="display:none!important;"><option value="">Kies eerst een kleur…</option></select>
+            </div>
+
+            <div class="gsmrt__group" id="gsmrt-quality-group-{{ sid }}" style="display:none">
+              <div class="gsmrt__label">Kwaliteit</div>
+              <div id="repair-quality-grid-{{ sid }}" class="gsmrt__qualitygrid"></div>
+              <div id="repair-quality-hint-{{ sid }}" style="font-size:.92rem;color:#64748b;margin-top:10px;"></div>
+              <select class="gsmrt__select" id="repair-quality-{{ sid }}" style="display:none!important;"><option value="">Kies eerst een reparatie…</option></select>
+            </div>
+
+            <div class="gsmrt__actions" id="gsmrt-actions-{{ sid }}">
+              <button type="button" class="gsmrt__btn gsmrt__btn--ghost" id="GsmAddBtn-{{ sid }}" style="display:none" disabled>Nog een reparatie toevoegen</button>
+              <button type="button" class="gsmrt__btn gsmrt__btn--primary" id="GsmNextBtn-{{ sid }}" style="display:none" disabled>Afspraak plannen</button>
+            </div>
+
+            <div id="gsmrt-services-section-{{ sid }}" style="display:none">
+              <hr style="border:0;height:1px;background:rgba(0,0,0,.08);margin:18px 0;">
+              <div class="gsmrt__group">
+                <div class="gsmrt__label">Services (optioneel)</div>
+                <select class="gsmrt__select" id="service-select-{{ sid }}">
+                  <option value="">Kies een service…</option>
+                  <option value="Software reset||25||">Software reset — € 25,-</option>
+                  <option value="Reinigen||19||No cure, no pay">Reinigen — € 19,- (No cure, no pay)</option>
+                  <option value="Onderzoeken||25||">Onderzoeken — € 25,-</option>
+                </select>
+              </div>
+              <div class="gsmrt__actions" style="margin-top:8px;">
+                <button type="button" class="gsmrt__btn gsmrt__btn--ghost" id="GsmAddServiceBtn-{{ sid }}" disabled>Voeg service toe</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- SIDEBAR -->
+          <aside class="gsmrt__side">
+            <div class="gsmrt__card" style="padding:18px;">
+              <div style="font-size:1.8rem;font-weight:1000;color:var(--primary);margin:0 0 2px;">Reparatie lijst</div>
+              <div id="GsmSideDevice-{{ sid }}" style="font-weight:900;color:#0f172a;opacity:.8;margin-bottom:10px;">Kies een toestel</div>
+              <div id="GsmCartBox-{{ sid }}" style="display:none;"></div>
+              <div style="height:1px;background:rgba(0,0,0,.10);margin:14px 0;"></div>
+              <div style="display:flex;justify-content:space-between;font-weight:900;color:#64748b;font-size:1.2rem;">
+                <span>Subtotaal</span><span id="GsmSideSubtotal-{{ sid }}">-</span>
+              </div>
+              <div style="height:1px;background:rgba(0,0,0,.10);margin:14px 0;"></div>
+              <div>
+                <div style="font-size:2.0rem;font-weight:1000;color:#0f172a;line-height:1.05;margin-top:40px;">Totaal</div>
+                <div id="GsmBtwLabel-{{ sid }}" style="font-weight:900;color:#64748b;margin-top:2px;font-size:1.2rem;">incl. btw (21%)</div>
+                <div id="GsmSideTotal-{{ sid }}" style="margin-top:10px;font-size:2.5rem;font-weight:1000;color:var(--primary);text-align:right;">-</div>
+              </div>
+              <button type="button" class="gsmrt__btn gsmrt__btn--primary" style="width:100%;margin-top:14px;" id="GsmSideNextBtn-{{ sid }}" disabled>
+                Afspraak plannen<br><span style="font-size:.92rem;opacity:.9;">Je betaalt pas na de reparatie</span>
+              </button>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="gsmrt__panel" data-gsmrt-panel="2">
+      <div class="gsmrt__card">
+        <div style="font-size:1.2rem;font-weight:1000;color:#003b4a;margin:0 0 10px;">2. Vraag een offerte aan of plan een afspraak</div>
+        <div id="GsmSummary-{{ sid }}" class="gsmrt__summary"></div>
+        <form id="RepairForm-{{ sid }}">
+          <div class="gsmrt__group"><div class="gsmrt__label">Naam</div><input class="gsmrt__input" id="ContactName-{{ sid }}" type="text" required></div>
+          <div class="gsmrt__group"><div class="gsmrt__label">Telefoonnummer</div><input class="gsmrt__input" id="ContactPhone-{{ sid }}" type="tel" required></div>
+          <div class="gsmrt__group"><div class="gsmrt__label">E-mailadres</div><input class="gsmrt__input" id="ContactEmail-{{ sid }}" type="email" required></div>
+          <div class="gsmrt__group"><div class="gsmrt__label">Voorkeursdatum (optioneel)</div><input class="gsmrt__input" id="PreferredDate-{{ sid }}" type="date"></div>
+          <div class="gsmrt__group"><div class="gsmrt__label">Voorkeurtijd (optioneel)</div><input class="gsmrt__input" id="PreferredTime-{{ sid }}" type="time"></div>
+          <div class="gsmrt__group"><div class="gsmrt__label">Opmerking (optioneel)</div><textarea class="gsmrt__textarea" id="ContactMessage-{{ sid }}" rows="3"></textarea></div>
+          <div class="gsmrt__actions">
+            <button type="button" class="gsmrt__btn gsmrt__btn--ghost" id="GsmBackBtn-{{ sid }}">Terug</button>
+            <button type="submit" class="gsmrt__btn gsmrt__btn--primary" id="GsmSubmitBtn-{{ sid }}" style="display:inline-flex;align-items:center;gap:8px;">
+              <svg id="GsmSubmitIcon-{{ sid }}" class="gsmrt__submit-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.61 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 5.45 5.45l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span id="GsmSubmitLabel-{{ sid }}">Verstuur reparatie-aanvraag</span>
+            </button>
+          </div>
+          <div style="font-size:.95rem;color:#0f172a;margin-top:10px;opacity:.85;">We controleren eerst of onderdelen beschikbaar zijn. Je afspraak is pas definitief na onze bevestiging per e-mail.</div>
+        </form>
+        <div id="RepairError-{{ sid }}" class="gsmrt__alert gsmrt__alert--error"></div>
+        <div id="RepairSuccess-{{ sid }}" class="gsmrt__alert gsmrt__alert--success">✅ Je aanvraag is verstuurd! We nemen zo snel mogelijk contact met je op ter bevestiging.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gsmrt__mobilebar" id="gsmrt-mobilebar-{{ sid }}">
+    <div class="gsmrt__mobilebar__inner">
+      <div class="gsmrt__mobilebar__info">
+        <div class="gsmrt__mobilebar__count" id="gsmrt-mobilebar-count-{{ sid }}">0 items</div>
+        <div class="gsmrt__mobilebar__total" id="gsmrt-mobilebar-total-{{ sid }}"></div>
+      </div>
+      <button type="button" class="gsmrt__mobilebar__btn" id="gsmrt-mobilebar-btn-{{ sid }}" disabled>Volgende</button>
+    </div>
+  </div>
+
+  <div class="gsmrt__toast-container" id="gsmrt-toasts-{{ sid }}"></div>
+</section>
+
+<script src="{{ 'repair-widget.js' | asset_url }}" defer></script>
 
 {% schema %}
 {
@@ -22,16 +290,7 @@
       "type": "text",
       "id": "title",
       "label": "Titel",
-      "default": "Reparatie aanvragen"
-    },
-    {
-      "type": "range",
-      "id": "max_width",
-      "label": "Maximale breedte (px)",
-      "min": 400,
-      "max": 1200,
-      "step": 20,
-      "default": 720
+      "default": "Direct een indicatie voor je reparatie"
     }
   ]
 }
