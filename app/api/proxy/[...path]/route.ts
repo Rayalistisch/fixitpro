@@ -57,22 +57,49 @@ async function handleCatalogGet(
   const repairType = searchParams.get("repair_type") ?? "";
   const rpcName = searchParams.get("rpc") ?? "";
 
-  // RPC calls (voor de widget typeahead)
-  if (rpcName) {
-    // Ondersteunde RPC's met shop-filtering
-    const ALLOWED_RPCS: Record<string, Record<string, unknown>> = {
-      get_brands: { p_shop_domain: shopDomain },
-      get_models: { p_brand: brand, p_shop_domain: shopDomain },
-      get_colors: { p_brand: brand, p_model: model, p_shop_domain: shopDomain },
-      get_repair_types: { p_brand: brand, p_model: model, p_color: color, p_shop_domain: shopDomain },
-      get_qualities_prices: { p_brand: brand, p_model: model, p_color: color, p_repair_type: repairType, p_shop_domain: shopDomain },
-    };
-    if (!ALLOWED_RPCS[rpcName]) {
-      return NextResponse.json({ error: "Onbekende RPC" }, { status: 400 });
+  // Direct queries voor widget typeahead — met fallback naar globale catalogus
+  async function distinctWithFallback(
+    column: string,
+    filters: Record<string, string>
+  ): Promise<string[]> {
+    async function query(withShop: boolean) {
+      let q = sb.from("repair_catalog").select(column);
+      if (withShop) q = q.eq("shop_domain", shopDomain);
+      for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
+      q = q.limit(2000);
+      const { data } = await q;
+      return [...new Set((data ?? []).map((r: any) => r[column] as string).filter(Boolean))].sort() as string[];
     }
-    const { data, error } = await sb.rpc(rpcName, ALLOWED_RPCS[rpcName]);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(data ?? []);
+    const own = await query(true);
+    return own.length > 0 ? own : query(false);
+  }
+
+  if (rpcName === "get_colors" && brand && model) {
+    const colors = await distinctWithFallback("color", { brand, model });
+    return NextResponse.json(colors.map((c) => ({ color: c })));
+  }
+  if (rpcName === "get_repair_types" && brand && model && color) {
+    const types = await distinctWithFallback("repair_type", { brand, model, color });
+    return NextResponse.json(types.map((t) => ({ repair_type: t })));
+  }
+  if (rpcName === "get_qualities_prices" && brand && model && color && repairType) {
+    async function queryQP(withShop: boolean) {
+      let q = sb.from("repair_catalog")
+        .select("quality, price, show_quality")
+        .eq("brand", brand).eq("model", model).eq("color", color).eq("repair_type", repairType)
+        .limit(50);
+      if (withShop) q = q.eq("shop_domain", shopDomain);
+      const { data } = await q;
+      return data ?? [];
+    }
+    const own = await queryQP(true);
+    const rows = own.length > 0 ? own : await queryQP(false);
+    return NextResponse.json(rows);
+  }
+
+  // Overige RPC-namen (get_brands, get_models) — niet meer via RPC maar afgehandeld hieronder
+  if (rpcName) {
+    return NextResponse.json({ error: "Onbekende RPC" }, { status: 400 });
   }
 
   if (brandsOnly) {
