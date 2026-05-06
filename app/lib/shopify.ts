@@ -356,34 +356,6 @@ export async function updateShopSubscription(
   if (error) throw error;
 }
 
-// Kopieer de catalogus van de template shop naar een nieuwe shop
-export async function seedCatalogForShop(newShopDomain: string): Promise<void> {
-  const sb = getSupabase();
-
-  // Controleer of de shop al eigen catalogusdata heeft
-  const { data: existing } = await sb
-    .from("repair_catalog")
-    .select("id")
-    .eq("shop_domain", newShopDomain)
-    .limit(1);
-  if (existing && existing.length > 0) return;
-
-  // Haal alle template-rijen op (alle rijen zonder shop_domain of de oudste shop)
-  const { data: template, error } = await sb
-    .from("repair_catalog")
-    .select("brand, model, color, repair_type, quality, price, show_quality")
-    .limit(2000);
-  if (error || !template || template.length === 0) return;
-
-  // Kopieer met nieuwe shop_domain
-  const rows = template.map((r: any) => ({ ...r, shop_domain: newShopDomain }));
-  const BATCH = 200;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    await sb.from("repair_catalog").insert(rows.slice(i, i + BATCH));
-  }
-  console.log(`Catalog geseeded voor ${newShopDomain}: ${rows.length} rijen`);
-}
-
 // Saniteer shop domain (alleen *.myshopify.com of custom domains toegestaan)
 export function sanitizeShopDomain(input: string): string | null {
   const cleaned = input.trim().toLowerCase().replace(/^https?:\/\//, "");
