@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getShopFromDomain, sanitizeShopDomain, updateShopSubscription } from "@/app/lib/shopify";
+import { createClient } from "@supabase/supabase-js";
+import { sanitizeShopDomain, updateShopSubscription } from "@/app/lib/shopify";
 import { getAppSubscription } from "@/app/lib/billing";
 
 export const runtime = "nodejs";
@@ -18,7 +19,9 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${appUrl}/billing?error=invalid_shop`);
   }
 
-  const shopRow = await getShopFromDomain(shop);
+  // Haal shop op zonder uninstalled_at filter — billing callback moet altijd kunnen verwerken
+  const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+  const { data: shopRow } = await sb.from("shops").select("access_token").eq("shop_domain", shop).order("installed_at", { ascending: false }).limit(1).maybeSingle();
   if (!shopRow) {
     return NextResponse.redirect(`${appUrl}/billing?error=shop_not_found`);
   }
