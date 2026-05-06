@@ -284,10 +284,11 @@
   if (!el) return;
   var p = el.parentElement;
   while (p && p !== document.body) {
-    var cs = window.getComputedStyle(p);
-    if (cs.maxWidth !== 'none') p.style.setProperty('max-width','none','important');
-    if (cs.paddingLeft !== '0px') p.style.setProperty('padding-left','0','important');
-    if (cs.paddingRight !== '0px') p.style.setProperty('padding-right','0','important');
+    p.style.setProperty('max-width','none','important');
+    p.style.setProperty('width','100%','important');
+    p.style.setProperty('align-self','stretch','important');
+    p.style.setProperty('padding-left','0','important');
+    p.style.setProperty('padding-right','0','important');
     if (p.classList.contains('shopify-section')) break;
     p = p.parentElement;
   }
