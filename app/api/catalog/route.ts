@@ -52,65 +52,67 @@ export async function GET(req: Request) {
       return NextResponse.json([...brandSet].sort());
     }
 
-    // Unieke modellen voor een merk — pagineer zodat we ALLE rijen krijgen
-    const modelsOnly = searchParams.get("models") === "1";
-    if (modelsOnly && brand) {
-      const PAGE = 1000;
-      let offset = 0;
-      const modelSet = new Set<string>();
-      while (true) {
-        let q = sb.from("repair_catalog").select("model").eq("brand", brand).range(offset, offset + PAGE - 1);
-        if (shop) {
-          const { data, error } = await (q.eq("shop_domain", shop) as typeof q);
-          if (error) {
-            // shop_domain kolom bestaat niet — query zonder filter
-            const { data: d2, error: e2 } = await q;
-            if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
-            if (!d2 || d2.length === 0) break;
-            d2.forEach((r: { model: string }) => modelSet.add(r.model));
-            if (d2.length < PAGE) break;
-          } else {
-            if (!data || data.length === 0) break;
-            data.forEach((r: { model: string }) => modelSet.add(r.model));
-            if (data.length < PAGE) break;
-          }
-        } else {
-          const { data, error } = await q;
-          if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-          if (!data || data.length === 0) break;
-          data.forEach((r: { model: string }) => modelSet.add(r.model));
-          if (data.length < PAGE) break;
-        }
-        offset += PAGE;
-      }
-      return NextResponse.json([...modelSet].sort());
-    }
-
-    // Pagineer zodat we altijd alle rijen ophalen, ook bij grote catalogi
-    const PAGE = 1000;
-    let offset = 0;
-    const all: any[] = [];
-    while (true) {
+    // Helper: bouw een verse query op (Supabase builder is mutable — nooit hergebruiken na await)
+    function buildQuery(withShop: boolean, offset: number) {
       let q = sb
         .from("repair_catalog")
         .select("id, brand, model, color, repair_type, quality, price, show_quality")
         .order("brand").order("model").order("color").order("repair_type").order("quality")
-        .range(offset, offset + PAGE - 1);
-
+        .range(offset, offset + 999);
       if (brand) q = q.eq("brand", brand);
       if (model) q = q.eq("model", model);
       if (search) q = q.or(`brand.ilike.%${search}%,model.ilike.%${search}%,repair_type.ilike.%${search}%`);
+      if (withShop && shop) q = q.eq("shop_domain", shop);
+      return q;
+    }
 
-      let { data, error } = await (shop ? (q.eq("shop_domain", shop) as typeof q) : q);
-      if ((error || (shop && (!data || data.length === 0))) && shop) {
-        // Geen data voor deze shop → fallback op globale catalog
-        ({ data, error } = await q);
+    // Modellen voor een merk (voor het toevoeg-formulier)
+    const modelsOnly = searchParams.get("models") === "1";
+    if (modelsOnly && brand) {
+      const modelSet = new Set<string>();
+      for (let offset = 0; offset < 100000; offset += 1000) {
+        const useShop = !!shop;
+        const q = sb.from("repair_catalog").select("model").eq("brand", brand).range(offset, offset + 999);
+        const { data } = await (useShop ? q.eq("shop_domain", shop) : q);
+        if (!data || data.length === 0) {
+          if (useShop && modelSet.size === 0) {
+            // Geen eigen data — fallback naar globale modellen
+            for (let o2 = 0; o2 < 100000; o2 += 1000) {
+              const q2 = sb.from("repair_catalog").select("model").eq("brand", brand).range(o2, o2 + 999);
+              const { data: d2 } = await q2;
+              if (!d2 || d2.length === 0) break;
+              d2.forEach((r: any) => { if (r.model) modelSet.add(r.model); });
+              if (d2.length < 1000) break;
+            }
+          }
+          break;
+        }
+        data.forEach((r: any) => { if (r.model) modelSet.add(r.model); });
+        if (data.length < 1000) break;
       }
+      return NextResponse.json([...modelSet].sort());
+    }
+
+    // Hoofdquery: alle rijen voor een brand/model/search
+    const all: any[] = [];
+    for (let offset = 0; offset < 100000; offset += 1000) {
+      const { data, error } = await buildQuery(!!shop, offset);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      if (!data || data.length === 0) break;
+      if (!data || data.length === 0) {
+        // Geen eigen data voor deze shop — fallback naar globale catalog
+        if (shop && all.length === 0) {
+          for (let o2 = 0; o2 < 100000; o2 += 1000) {
+            const { data: d2, error: e2 } = await buildQuery(false, o2);
+            if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
+            if (!d2 || d2.length === 0) break;
+            all.push(...d2);
+            if (d2.length < 1000) break;
+          }
+        }
+        break;
+      }
       all.push(...data);
-      if (data.length < PAGE) break;
-      offset += PAGE;
+      if (data.length < 1000) break;
     }
     return NextResponse.json(all);
   } catch (e: any) {
