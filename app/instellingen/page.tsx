@@ -57,6 +57,8 @@ function InstellingenContent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   // E-mail tab state
   const [mailMode, setMailMode] = useState<"mailgun" | "smtp">("mailgun");
@@ -87,6 +89,26 @@ function InstellingenContent() {
   }, [shop]);
 
   useEffect(() => { load(); }, [load]);
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError("");
+    try {
+      const form = new FormData();
+      form.append("logo", file);
+      const res = await fetch(`/api/upload-logo?shop=${shop}`, { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) { setUploadError(json.error || "Upload mislukt"); return; }
+      setSettings(s => ({ ...s, logo_url: json.url }));
+    } catch {
+      setUploadError("Netwerkfout bij uploaden.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -307,10 +329,54 @@ function InstellingenContent() {
                 <p style={{ fontSize: 13, color: "#9ca3af", marginTop: -8, marginBottom: 16 }}>
                   Hier ontvang je een melding bij elke nieuwe aanvraag.
                 </p>
-                {field("logo_url", "Logo URL", "https://jouwbedrijf.nl/logo.png", "url")}
-                <p style={{ fontSize: 13, color: "#9ca3af", marginTop: -8 }}>
-                  Directe link naar je logo (wordt gebruikt in PDF en e-mails).
-                </p>
+
+                {/* Logo upload */}
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: "block", fontWeight: 700, marginBottom: 10, color: "#374151", fontSize: 14 }}>
+                    Logo
+                  </label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+                    {settings.logo_url ? (
+                      <img
+                        src={settings.logo_url}
+                        alt="Logo preview"
+                        style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 10, border: "1px solid #e5e7eb", background: "#f9fafb" }}
+                      />
+                    ) : (
+                      <div style={{ width: 64, height: 64, borderRadius: 10, border: "2px dashed #d1d5db", background: "#f9fafb", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 11, textAlign: "center" }}>
+                        Geen logo
+                      </div>
+                    )}
+                    <div>
+                      <label style={{
+                        display: "inline-block", padding: "9px 18px", borderRadius: 999,
+                        background: uploading ? "#e2e8f0" : "#f1f5f9",
+                        border: "1px solid #d1d5db", fontWeight: 700, fontSize: 14,
+                        color: "#374151", cursor: uploading ? "not-allowed" : "pointer",
+                      }}>
+                        {uploading ? "Uploaden…" : "Bestand kiezen"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={handleLogoUpload}
+                          disabled={uploading}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                      <p style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>JPEG, PNG of WebP · max 2 MB</p>
+                    </div>
+                  </div>
+                  {uploadError && (
+                    <div style={{ fontSize: 13, color: "#b91c1c", marginBottom: 8 }}>{uploadError}</div>
+                  )}
+                  <input
+                    type="url"
+                    value={settings.logo_url ?? ""}
+                    onChange={e => setSettings(s => ({ ...s, logo_url: e.target.value }))}
+                    placeholder="Of plak een directe URL: https://…"
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, border: "1px solid #d1d5db", fontSize: 14, outline: "none", boxSizing: "border-box", color: "#374151" }}
+                  />
+                </div>
               </div>
 
               {error && (
