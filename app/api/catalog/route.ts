@@ -39,8 +39,8 @@ export async function GET(req: Request) {
       let query = sb.from("repair_catalog").select("brand");
       if (shop) query = query.eq("shop_domain", shop) as typeof query;
       const { data, error } = await query;
-      if (error) {
-        // shop_domain kolom bestaat nog niet → haal alle merken op (single-tenant fallback)
+      if (error || (shop && (!data || data.length === 0))) {
+        // Kolom bestaat niet of shop heeft nog geen eigen catalog → fallback op alle data
         const { data: allData, error: allErr } = await sb.from("repair_catalog").select("brand");
         if (allErr) return NextResponse.json({ error: allErr.message }, { status: 500 });
         const brands = [...new Set((allData ?? []).map((r: any) => r.brand).filter(Boolean))].sort();
@@ -100,8 +100,8 @@ export async function GET(req: Request) {
       if (search) q = q.or(`brand.ilike.%${search}%,model.ilike.%${search}%,repair_type.ilike.%${search}%`);
 
       let { data, error } = await (shop ? (q.eq("shop_domain", shop) as typeof q) : q);
-      if (error && shop) {
-        // shop_domain kolom bestaat niet — opnieuw zonder filter
+      if ((error || (shop && (!data || data.length === 0))) && shop) {
+        // Geen data voor deze shop → fallback op globale catalog
         ({ data, error } = await q);
       }
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });

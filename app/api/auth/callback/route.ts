@@ -6,6 +6,7 @@ import {
   upsertShop,
   getShopFromDomain,
   sanitizeShopDomain,
+  seedCatalogForShop,
 } from "@/app/lib/shopify";
 import { isSubscriptionActive } from "@/app/lib/billing";
 
@@ -68,9 +69,12 @@ export async function GET(req: Request) {
       }, { status: 500 });
     }
 
-    // Herlaad shop voor subscription status (upsert kan net zijn uitgevoerd)
-    const freshShop = await getShopFromDomain(shop).catch(() => null);
-    const hasBilling = isSubscriptionActive(freshShop?.subscription_status ?? null);
+    // Seed catalog voor nieuwe shop als die nog geen eigen data heeft
+    if (!existingShop) {
+      seedCatalogForShop(shop).catch((e) =>
+        console.error("Catalog seeding mislukt (niet-kritiek):", e)
+      );
+    }
 
     // Redirect naar Shopify admin (myshopify.com formaat) zodat de app
     // als embedded iframe geladen wordt — vereist voor App Bridge token exchange.
