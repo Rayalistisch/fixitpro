@@ -105,25 +105,25 @@ async function handleCatalogGet(
   if (brandsOnly) {
     // Probeer eerst de globale RPC (DISTINCT, geen row-limiet)
     const { data: rpcData, error: rpcError } = await sb.rpc("get_brands", {});
-    if (!rpcError && rpcData) {
+    if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
       const brands = rpcData
         .map((r: unknown) => (typeof r === "string" ? r : (r as { brand: string }).brand))
         .filter(Boolean)
         .sort();
       return NextResponse.json(brands);
     }
-    // Fallback: directe query op eigen rijen, dan op globaal
-    const { data: ownData } = await sb
-      .from("repair_catalog")
-      .select("brand")
-      .eq("shop_domain", shopDomain)
-      .order("brand");
-    const ownBrands = [...new Set((ownData ?? []).map((r: { brand: string }) => r.brand))];
-    if (ownBrands.length > 0) return NextResponse.json(ownBrands);
-    const { data: allData, error: allErr } = await sb
-      .from("repair_catalog").select("brand").order("brand").limit(5000);
-    if (allErr) return NextResponse.json({ error: allErr.message }, { status: 500 });
-    return NextResponse.json([...new Set((allData ?? []).map((r: { brand: string }) => r.brand))]);
+    // Fallback: pagineer door alle rijen (identiek aan admin-route)
+    const brandSet = new Set<string>();
+    for (let i = 0; i < 200; i++) {
+      const { data, error } = await sb
+        .from("repair_catalog")
+        .select("brand")
+        .range(i * 1000, i * 1000 + 999);
+      if (error || !data || data.length === 0) break;
+      data.forEach((r: { brand: string }) => { if (r.brand) brandSet.add(r.brand); });
+      if (data.length < 1000) break;
+    }
+    return NextResponse.json([...brandSet].sort());
   }
 
   if (modelsOnly && brand) {
