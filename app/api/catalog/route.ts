@@ -34,12 +34,22 @@ export async function GET(req: Request) {
   try {
     const sb = getAdmin();
 
-    // Alle unieke merken — altijd globale catalog als referentie
+    // Alle unieke merken via RPC (DISTINCT, geen row-limiet)
     if (brandsOnly) {
-      const { data: allData, error: allErr } = await sb.from("repair_catalog").select("brand");
-      if (allErr) return NextResponse.json({ error: allErr.message }, { status: 500 });
-      const brands = [...new Set((allData ?? []).map((r: any) => r.brand).filter(Boolean))].sort();
-      return NextResponse.json(brands);
+      const { data: rpcData, error: rpcError } = await sb.rpc("get_brands", {});
+      if (!rpcError && rpcData) {
+        const brands = rpcData.map((r: any) => (typeof r === "string" ? r : r.brand)).filter(Boolean).sort();
+        return NextResponse.json(brands);
+      }
+      // Fallback: pagineer handmatig als RPC niet beschikbaar is
+      const brandSet = new Set<string>();
+      for (let i = 0; i < 200; i++) {
+        const { data, error } = await sb.from("repair_catalog").select("brand").range(i * 1000, i * 1000 + 999);
+        if (error || !data || data.length === 0) break;
+        data.forEach((r: any) => { if (r.brand) brandSet.add(r.brand); });
+        if (data.length < 1000) break;
+      }
+      return NextResponse.json([...brandSet].sort());
     }
 
     // Unieke modellen voor een merk — pagineer zodat we ALLE rijen krijgen
