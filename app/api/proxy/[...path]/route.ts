@@ -76,29 +76,33 @@ async function handleCatalogGet(
   }
 
   if (brandsOnly) {
-    // Probeer eerst de shop-aware RPC; fallback op directe query als RPC niet bestaat
-    try {
-      const { data, error } = await sb.rpc("get_brands", { p_shop_domain: shopDomain });
-      if (!error && data) return NextResponse.json(data);
-    } catch {
-      // RPC bestaat nog niet (voor migratie): val terug op directe query
+    // Probeer eerst de globale RPC (DISTINCT, geen row-limiet)
+    const { data: rpcData, error: rpcError } = await sb.rpc("get_brands", {});
+    if (!rpcError && rpcData) {
+      const brands = rpcData
+        .map((r: unknown) => (typeof r === "string" ? r : (r as { brand: string }).brand))
+        .filter(Boolean)
+        .sort();
+      return NextResponse.json(brands);
     }
-
-    const { data: d2, error: e2 } = await sb
+    // Fallback: directe query op eigen rijen, dan op globaal
+    const { data: ownData } = await sb
       .from("repair_catalog")
       .select("brand")
       .eq("shop_domain", shopDomain)
       .order("brand");
-    if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
-    const brands = [...new Set((d2 ?? []).map((r: { brand: string }) => r.brand))];
-    return NextResponse.json(brands);
+    const ownBrands = [...new Set((ownData ?? []).map((r: { brand: string }) => r.brand))];
+    if (ownBrands.length > 0) return NextResponse.json(ownBrands);
+    const { data: allData, error: allErr } = await sb
+      .from("repair_catalog").select("brand").order("brand").limit(5000);
+    if (allErr) return NextResponse.json({ error: allErr.message }, { status: 500 });
+    return NextResponse.json([...new Set((allData ?? []).map((r: { brand: string }) => r.brand))]);
   }
 
   if (modelsOnly && brand) {
     const PAGE = 1000;
-    let offset = 0;
     const modelSet = new Set<string>();
-    while (true) {
+    for (let offset = 0; offset < 100000; offset += PAGE) {
       const { data, error } = await sb
         .from("repair_catalog")
         .select("model")
@@ -109,23 +113,41 @@ async function handleCatalogGet(
       if (!data?.length) break;
       data.forEach((r: { model: string }) => modelSet.add(r.model));
       if (data.length < PAGE) break;
-      offset += PAGE;
+    }
+    if (modelSet.size > 0) return NextResponse.json([...modelSet].sort());
+    // Geen eigen data — fallback naar globale catalogus
+    for (let o2 = 0; o2 < 100000; o2 += PAGE) {
+      const { data: d2 } = await sb
+        .from("repair_catalog")
+        .select("model")
+        .eq("brand", brand)
+        .range(o2, o2 + PAGE - 1);
+      if (!d2?.length) break;
+      d2.forEach((r: { model: string }) => modelSet.add(r.model));
+      if (d2.length < PAGE) break;
     }
     return NextResponse.json([...modelSet].sort());
   }
 
-  let q = sb
-    .from("repair_catalog")
-    .select("id, brand, model, color, repair_type, quality, price, show_quality")
-    .eq("shop_domain", shopDomain)
-    .order("brand").order("model").order("color").order("repair_type").limit(500);
+  // Algemene catalogus-query
+  function buildQ(withShop: boolean) {
+    let q = sb
+      .from("repair_catalog")
+      .select("id, brand, model, color, repair_type, quality, price, show_quality")
+      .order("brand").order("model").order("color").order("repair_type").limit(500);
+    if (withShop) q = q.eq("shop_domain", shopDomain);
+    if (brand) q = q.eq("brand", brand);
+    if (model) q = q.eq("model", model);
+    return q;
+  }
 
-  if (brand) q = q.eq("brand", brand);
-  if (model) q = q.eq("model", model);
-
-  const { data, error } = await q;
+  const { data, error } = await buildQ(true);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+  if (data && data.length > 0) return NextResponse.json(data);
+  // Geen eigen data — fallback naar globale catalogus
+  const { data: d2, error: e2 } = await buildQ(false);
+  if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
+  return NextResponse.json(d2 ?? []);
 }
 
 // ── Handler voor POST (aanvraag aanmaken) ────────────────────────────────────
