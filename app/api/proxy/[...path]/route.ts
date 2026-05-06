@@ -22,15 +22,16 @@ function safe(v: unknown): string {
 
 // ── Mailgun helper (gedeeld met create-request) ──────────────────────────────
 async function sendMailgun({
-  apiKey, domain, region, from, to, subject, html,
+  apiKey, domain, region, from, to, subject, html, replyTo,
 }: {
   apiKey: string; domain: string; region: string;
-  from: string; to: string; subject: string; html: string;
+  from: string; to: string; subject: string; html: string; replyTo?: string;
 }) {
   const base = region === "eu"
     ? "https://api.eu.mailgun.net"
     : "https://api.mailgun.net";
   const form = new URLSearchParams({ from, to, subject, html });
+  if (replyTo) form.append("h:Reply-To", replyTo);
   const auth = Buffer.from(`api:${apiKey}`).toString("base64");
   const res = await fetch(`${base}/v3/${domain}/messages`, {
     method: "POST",
@@ -224,9 +225,9 @@ async function handleCreateRequest(
   const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN!;
   const MAILGUN_REGION = process.env.MAILGUN_REGION ?? "eu";
   const companyName = settings.company_name ?? "GSM Reparatie";
-  const MAIL_FROM = settings.email
-    ? `${companyName} <${settings.email}>`
-    : (process.env.MAIL_FROM ?? `${companyName} <noreply@${MAILGUN_DOMAIN}>`);
+  // Altijd FROM via geverifieerd Mailgun-domein — shop-email als Reply-To
+  const MAIL_FROM = process.env.MAIL_FROM ?? `${companyName} <noreply@${MAILGUN_DOMAIN}>`;
+  const REPLY_TO = settings.email || undefined;
   const NOTIFY_EMAIL = settings.notify_email ?? process.env.NOTIFY_EMAIL ?? "";
   const DEBUG_TO = process.env.MAIL_DEBUG_TO ?? "";
 
@@ -256,6 +257,7 @@ async function handleCreateRequest(
       apiKey: MAILGUN_API_KEY, domain: MAILGUN_DOMAIN, region: MAILGUN_REGION,
       from: MAIL_FROM, to: DEBUG_TO || customer_email,
       subject: DEBUG_TO ? `[DEBUG] ${subject}` : subject, html,
+      replyTo: REPLY_TO,
     });
 
     if (NOTIFY_EMAIL) {
@@ -266,6 +268,7 @@ async function handleCreateRequest(
         html: `<p>Nieuwe aanvraag van ${customer_name || customer_email} (${customer_email})</p>
                <p>Toestel: ${toestel}</p><p>Reparatie: ${safe(body.issue)}</p>
                <p>Prijs: ${safe(body.price_text)}</p><p>Referentie: ${data.id}</p>`,
+        replyTo: REPLY_TO,
       });
     }
   } catch (mailErr) {
