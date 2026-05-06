@@ -221,7 +221,7 @@ export async function PATCH(req: Request) {
       // Copy-on-first-write: zorg dat de shop eigen data heeft
       await ensureShopOwnsData(sb, shop);
       // Controleer of de rij al van deze shop is
-      const { data: row } = await sb.from("repair_catalog").select("shop_domain").eq("id", id).maybeSingle();
+      const { data: row } = await sb.from("repair_catalog").select("shop_domain, brand").eq("id", id).maybeSingle();
       if (row && row.shop_domain !== shop) {
         // Rij hoort bij een andere shop — zoek de equivalente rij van déze shop
         const { data: ownRow } = await sb.from("repair_catalog")
