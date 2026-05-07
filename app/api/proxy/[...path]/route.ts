@@ -4,6 +4,8 @@ import {
   verifyProxySignature,
   getShopFromDomain,
 } from "@/app/lib/shopify";
+import { sendShopMail } from "@/app/lib/mailer";
+import type { ShopSettings } from "@/app/lib/shopify";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,29 +22,6 @@ function safe(v: unknown): string {
   return String(v ?? "").replace(/[<>]/g, "");
 }
 
-// ── Mailgun helper (gedeeld met create-request) ──────────────────────────────
-async function sendMailgun({
-  apiKey, domain, region, from, to, subject, html, replyTo,
-}: {
-  apiKey: string; domain: string; region: string;
-  from: string; to: string; subject: string; html: string; replyTo?: string;
-}) {
-  const base = region === "eu"
-    ? "https://api.eu.mailgun.net"
-    : "https://api.mailgun.net";
-  const form = new URLSearchParams({ from, to, subject, html });
-  if (replyTo) form.append("h:Reply-To", replyTo);
-  const auth = Buffer.from(`api:${apiKey}`).toString("base64");
-  const res = await fetch(`${base}/v3/${domain}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${auth}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: form.toString(),
-  });
-  if (!res.ok) throw new Error(`Mailgun ${res.status}: ${await res.text()}`);
-}
 
 // ── Handler voor GET (catalog data) ─────────────────────────────────────────
 async function handleCatalogGet(
@@ -220,16 +199,9 @@ async function handleCreateRequest(
     return NextResponse.json({ error: "Database fout" }, { status: 500 });
   }
 
-  // E-mail via shop-specifieke instellingen
-  const MAILGUN_API_KEY = process.env.MAILGUN_API_KEY!;
-  const MAILGUN_DOMAIN = process.env.MAILGUN_DOMAIN!;
-  const MAILGUN_REGION = process.env.MAILGUN_REGION ?? "eu";
-  const companyName = settings.company_name ?? "GSM Reparatie";
-  // Altijd FROM via geverifieerd Mailgun-domein — shop-email als Reply-To
-  const MAIL_FROM = process.env.MAIL_FROM ?? `${companyName} <noreply@${MAILGUN_DOMAIN}>`;
-  const REPLY_TO = settings.email || undefined;
-  const NOTIFY_EMAIL = settings.notify_email ?? process.env.NOTIFY_EMAIL ?? "";
-  const DEBUG_TO = process.env.MAIL_DEBUG_TO ?? "";
+  const shopSettings = (settings ?? {}) as ShopSettings;
+  const companyName = shopSettings.company_name ?? "GSM Reparatie";
+  const NOTIFY_EMAIL = shopSettings.notify_email ?? process.env.NOTIFY_EMAIL ?? "";
 
   const toestel = [safe(body.brand), safe(body.model), safe(body.color)]
     .filter(Boolean).join(" ");
@@ -253,22 +225,15 @@ async function handleCreateRequest(
   `;
 
   try {
-    await sendMailgun({
-      apiKey: MAILGUN_API_KEY, domain: MAILGUN_DOMAIN, region: MAILGUN_REGION,
-      from: MAIL_FROM, to: DEBUG_TO || customer_email,
-      subject: DEBUG_TO ? `[DEBUG] ${subject}` : subject, html,
-      replyTo: REPLY_TO,
-    });
+    await sendShopMail(shopSettings, { to: customer_email, subject, html });
 
     if (NOTIFY_EMAIL) {
-      await sendMailgun({
-        apiKey: MAILGUN_API_KEY, domain: MAILGUN_DOMAIN, region: MAILGUN_REGION,
-        from: MAIL_FROM, to: DEBUG_TO || NOTIFY_EMAIL,
+      await sendShopMail(shopSettings, {
+        to: NOTIFY_EMAIL,
         subject: `Nieuwe aanvraag: ${toestel || "onbekend"} – ${customer_name || customer_email}`,
         html: `<p>Nieuwe aanvraag van ${customer_name || customer_email} (${customer_email})</p>
                <p>Toestel: ${toestel}</p><p>Reparatie: ${safe(body.issue)}</p>
                <p>Prijs: ${safe(body.price_text)}</p><p>Referentie: ${data.id}</p>`,
-        replyTo: REPLY_TO,
       });
     }
   } catch (mailErr) {
