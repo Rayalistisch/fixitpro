@@ -29,6 +29,7 @@ async function handleCatalogGet(
   shopDomain: string
 ): Promise<NextResponse> {
   const sb = getSupabase();
+  const allDevices = searchParams.get("all_devices") === "1";
   const brandsOnly = searchParams.get("brands") === "1";
   const modelsOnly = searchParams.get("models") === "1";
   const brand = searchParams.get("brand") ?? "";
@@ -36,6 +37,32 @@ async function handleCatalogGet(
   const color = searchParams.get("color") ?? "";
   const repairType = searchParams.get("repair_type") ?? "";
   const rpcName = searchParams.get("rpc") ?? "";
+
+  // Alle merken + modellen in één query (voor widget typeahead preload)
+  if (allDevices) {
+    async function fetchDevices(withShop: boolean) {
+      const PAGE = 1000;
+      const seen = new Map<string, Set<string>>();
+      for (let offset = 0; offset < 200000; offset += PAGE) {
+        let q = sb.from("repair_catalog").select("brand,model").order("brand").order("model").range(offset, offset + PAGE - 1);
+        if (withShop) q = q.eq("shop_domain", shopDomain);
+        const { data, error } = await q;
+        if (error || !data?.length) break;
+        data.forEach((r: { brand: string; model: string }) => {
+          if (!r.brand || !r.model) return;
+          if (!seen.has(r.brand)) seen.set(r.brand, new Set());
+          seen.get(r.brand)!.add(r.model);
+        });
+        if (data.length < PAGE) break;
+      }
+      return seen;
+    }
+    const own = await fetchDevices(true);
+    const map = own.size > 0 ? own : await fetchDevices(false);
+    const result: { brand: string; model: string }[] = [];
+    for (const [b, models] of map) for (const m of models) result.push({ brand: b, model: m });
+    return NextResponse.json(result);
+  }
 
   // Direct queries voor widget typeahead — met fallback naar globale catalogus
   async function distinctWithFallback(
