@@ -191,8 +191,18 @@ function initInstance(ROOT) {
   }
   async function getAllDevices() {
     if(CACHE.allDevices) return CACHE.allDevices;
-    var d = await proxyGet("?all_devices=1");
-    CACHE.allDevices = Array.isArray(d) ? d.filter(function(r){ return r.brand && r.model; }) : [];
+    try {
+      var d = await proxyGet("?all_devices=1");
+      CACHE.allDevices = Array.isArray(d) ? d.filter(function(r){ return r.brand && r.model; }) : [];
+    } catch(e) {
+      // Fallback: N+1 per merk
+      var brands = await getBrands();
+      var perBrand = await Promise.all(brands.map(async function(b){
+        var models = await getModels(b);
+        return models.map(function(m){ return { brand:b, model:m }; });
+      }));
+      CACHE.allDevices = perBrand.flat();
+    }
     return CACHE.allDevices;
   }
   async function getColors(brand, model) {

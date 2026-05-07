@@ -40,25 +40,25 @@ async function handleCatalogGet(
 
   // Alle merken + modellen in één query (voor widget typeahead preload)
   if (allDevices) {
-    async function fetchDevices(withShop: boolean) {
+    const queryDevices = async (withShop: boolean) => {
       const PAGE = 1000;
       const seen = new Map<string, Set<string>>();
       for (let offset = 0; offset < 200000; offset += PAGE) {
-        let q = sb.from("repair_catalog").select("brand,model").order("brand").order("model").range(offset, offset + PAGE - 1);
+        let q = sb.from("repair_catalog").select("brand, model").range(offset, offset + PAGE - 1);
         if (withShop) q = q.eq("shop_domain", shopDomain);
-        const { data, error } = await q;
-        if (error || !data?.length) break;
-        data.forEach((r: { brand: string; model: string }) => {
-          if (!r.brand || !r.model) return;
+        const { data } = await q;
+        if (!data?.length) break;
+        for (const r of data as any[]) {
+          if (!r.brand || !r.model) continue;
           if (!seen.has(r.brand)) seen.set(r.brand, new Set());
           seen.get(r.brand)!.add(r.model);
-        });
+        }
         if (data.length < PAGE) break;
       }
       return seen;
-    }
-    const own = await fetchDevices(true);
-    const map = own.size > 0 ? own : await fetchDevices(false);
+    };
+    const own = await queryDevices(true);
+    const map = own.size > 0 ? own : await queryDevices(false);
     const result: { brand: string; model: string }[] = [];
     for (const [b, models] of map) for (const m of models) result.push({ brand: b, model: m });
     return NextResponse.json(result);
